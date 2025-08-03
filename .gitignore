@@ -19,6 +19,18 @@ kk_stock_desktop/node_modules/
 kk_stock_desktop/dist/
 kk_stock_desktop/dist-electron/
 kk_stock_desktop/release/
+kk_stock_desktop/build/
+
+# 大文件和构建产物
+*.dmg
+*.dmg.zip
+*.exe
+*.zip
+*.app
+*.asar
+*.deb
+*.rpm
+*.AppImage
 
 # 日志文件 - 全面排除
 *.log
