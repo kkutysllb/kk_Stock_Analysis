@@ -1205,7 +1205,7 @@ const getDataContextKey = (context: any) => {
 // 监听数据上下文变化
 watch(
   () => dataContext.value,
-  (newContext, oldContext) => {
+  (newContext: any, oldContext: any) => {
     const newKey = getDataContextKey(newContext)
     const oldKey = lastDataContext.value
     
@@ -1220,7 +1220,8 @@ watch(
       processedThinkingBlocks.clear()
       
       // 添加数据变更提示消息
-      const contextName = newContext.name || newContext.type || '数据'
+      const context = newContext || {}
+      const contextName = context.name || context.type || '数据'
       chatMessages.value.push({
         role: 'assistant',
         content: `📊 **数据已切换** 

@@ -176,8 +176,8 @@
                       </span>
                     </td>
                     <td class="flow-col">
-                      <span class="value" :class="getChangeClass(item.net_mf_amount)">
-                        {{ formatAmount(item.net_mf_amount) }}
+                      <span class="value" :class="getChangeClass(item.net_amount)">
+                        {{ formatAmount(item.net_amount) }}
                       </span>
                     </td>
                   </tr>

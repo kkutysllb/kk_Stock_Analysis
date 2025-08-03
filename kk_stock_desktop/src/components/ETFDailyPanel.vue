@@ -138,8 +138,8 @@ const props = withDefaults(defineProps<Props>(), {
 type PeriodType = 'daily' | 'custom'
 
 // 响应式数据
-const selectedETF = ref(props.initialETF)
-const activePeriod = ref<PeriodType>(props.initialPeriod)
+const selectedETF = ref(props.initialETF || '')
+const activePeriod = ref<PeriodType>(props.initialPeriod || 'daily')
 const dateRange = ref<[string, string] | null>(null)
 const dataPoints = ref('60')
 const loading = ref(false)
@@ -184,7 +184,7 @@ const aiDataContext = computed(() => {
     const isDataMatching = !hasValidTsCode || 
                           firstDataPoint.ts_code === selectedETF.value || 
                           lastDataPoint.ts_code === selectedETF.value ||
-                          chartData.value.some(item => item.ts_code === selectedETF.value)
+                          chartData.value.some((item: any) => item.ts_code === selectedETF.value)
     
     if (isDataMatching) {
       // 数据匹配，使用chartData中的数据
@@ -262,7 +262,7 @@ ${stats ? `- 数据点数：${stats.count}个
 - 价格波动率：${stats.volatility.toFixed(2)}` : '- 暂无历史统计数据'}
 
 ## 最近交易数据（${currentETF?.name}）
-${recentData.map(item => 
+${recentData.map((item: any) => 
   `${item.date}: 收盘${item.close?.toFixed(2)}, 涨跌幅${(item.pct_chg || 0).toFixed(2)}%, 成交量${(item.volume || 0).toLocaleString()}万手`
 ).join('\n')}
 
@@ -344,17 +344,17 @@ const dateShortcuts = [
 ]
 
 // 监听属性变化
-watch(() => props.initialETF, (newVal) => {
+watch(() => props.initialETF, (newVal: string | undefined, oldVal: string | undefined) => {
   if (componentUnmounted.value || !isMounted.value) return
-  selectedETF.value = newVal
+  selectedETF.value = newVal || ''
   if (!componentUnmounted.value && isMounted.value) {
     loadETFData()
   }
 })
 
-watch(() => props.initialPeriod, (newVal) => {
+watch(() => props.initialPeriod, (newVal: 'daily' | 'custom' | undefined, oldVal: 'daily' | 'custom' | undefined) => {
   if (componentUnmounted.value || !isMounted.value) return
-  activePeriod.value = newVal as PeriodType
+  activePeriod.value = (newVal as PeriodType) || 'daily'
   if (!componentUnmounted.value && isMounted.value) {
     loadETFData()
   }
@@ -648,7 +648,7 @@ const initChart = () => {
     const colors = getThemeColors()
     
     // 准备数据
-    const dates = chartData.value.map(item => {
+    const dates = chartData.value.map((item: any) => {
       const dateStr = item.trade_date.toString()
       if (dateStr.length === 8) {
         return `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`
@@ -657,10 +657,10 @@ const initChart = () => {
     })
     
     // 准备价格数据
-    const priceData = chartData.value.map(item => item.close)
+    const priceData = chartData.value.map((item: any) => item.close)
     
     // 准备成交量数据
-    const volumeData = chartData.value.map((item, index) => {
+    const volumeData = chartData.value.map((item: any, index: number) => {
       const isUp = index === 0 ? true : item.close >= chartData.value[index - 1].close
       return {
         value: item.vol,

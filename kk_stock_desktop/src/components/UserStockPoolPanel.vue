@@ -165,11 +165,11 @@ import {
   FolderIcon,
   PlusIcon,
   ArrowPathIcon,
-  EllipsisVerticalIcon
+  ChevronDownIcon as EllipsisVerticalIcon
 } from '@heroicons/vue/24/outline'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { useAuthStore } from '@/stores/auth'
-import { eventBus } from '@/utils/eventBus'
+import { ElMessage, ElMessageBox, type ElFormInstance } from 'element-plus'
+import { useAuthStore } from '../stores/auth'
+import { eventBus } from '../utils/eventBus'
 import {
   getStockPools,
   createStockPool as apiCreateStockPool,
@@ -178,7 +178,7 @@ import {
   removeStockFromPool,
   type StockPool,
   type StockPoolStock
-} from '@/api/stockPool'
+} from '../api/stockPool'
 
 // Store
 const authStore = useAuthStore()
@@ -199,7 +199,7 @@ const createForm = ref({
   description: ''
 })
 
-const createFormRef = ref()
+const createFormRef = ref<ElFormInstance | null>(null)
 
 const createRules = {
   name: [
@@ -531,6 +531,7 @@ defineExpose({
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 

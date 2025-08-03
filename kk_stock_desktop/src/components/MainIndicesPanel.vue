@@ -184,8 +184,8 @@ interface ChartDataItem {
 }
 
 // 响应式状态
-const selectedIndex = ref<string>(props.initialIndex)
-const activePeriod = ref<'daily' | 'weekly' | 'monthly' | 'custom'>(props.initialPeriod)
+const selectedIndex = ref<string>(props.initialIndex || '000001.SH')
+const activePeriod = ref<'daily' | 'weekly' | 'monthly' | 'custom'>(props.initialPeriod || 'daily')
 const loading = ref(false)
 const chartContainer = ref<HTMLElement | null>(null)
 const chartInstance = ref<echarts.ECharts | null>(null)
@@ -196,7 +196,7 @@ const componentUnmounted = ref(false)
 
 // 新增状态和类型定义
 type DateRangeValue = [DateModelType, DateModelType] | undefined
-const dateRange = ref<DateRangeValue>()
+const dateRange = ref<DateRangeValue>(undefined)
 const dataPoints = ref<string>('60')
 
 // 日期快捷选项

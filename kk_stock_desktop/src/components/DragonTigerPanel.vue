@@ -426,17 +426,17 @@ import AskAIComponent from './AskAIComponent.vue'
 import {
   FireIcon,
   ArrowPathIcon,
-  ArrowTrendingUpIcon as TrendingUpIcon,
+  TrendingUpIcon,
   CurrencyDollarIcon,
   ScaleIcon,
   ListBulletIcon,
-  BuildingOffice2Icon as BuildingOfficeIcon,
+  BuildingOfficeIcon,
   ExclamationTriangleIcon,
   MagnifyingGlassIcon,
   ChartBarIcon,
   InformationCircleIcon,
   UserGroupIcon,
-  ArrowTrendingDownIcon
+  TrendingDownIcon as ArrowTrendingDownIcon
 } from '@heroicons/vue/24/outline'
 
 // 响应式数据
@@ -533,10 +533,10 @@ const hotMoneyCurrentPage = ref(1)
 const hotMoneyPageSize = ref(6) // 修改为每页显示8条数据，以便更好地适应页面高度
 
 // 图表引用
-const institutionChartRef = ref<HTMLDivElement>()
-const buyTop10ChartRef = ref<HTMLDivElement>()
-const sellTop10ChartRef = ref<HTMLDivElement>()
-const amountTop10ChartRef = ref<HTMLDivElement>()
+const institutionChartRef = ref<HTMLDivElement | null>(null)
+const buyTop10ChartRef = ref<HTMLDivElement | null>(null)
+const sellTop10ChartRef = ref<HTMLDivElement | null>(null)
+const amountTop10ChartRef = ref<HTMLDivElement | null>(null)
 let institutionChart: echarts.ECharts | null = null
 let buyTop10Chart: echarts.ECharts | null = null
 let sellTop10Chart: echarts.ECharts | null = null

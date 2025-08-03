@@ -245,7 +245,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch, type Ref } from 'vue'
 import * as echarts from 'echarts'
 import { useAppStore } from '../stores/app'
 import { optionsAPI } from '../api/options.js'
@@ -255,45 +255,107 @@ import {
   ElSelect,
   ElOption,
   ElButton,
-  ElIcon
+  ElIcon,
+  type ElRadioGroupProps
 } from 'element-plus'
 import { Loading, Warning } from '@element-plus/icons-vue'
 import { ChartBarIcon } from '@heroicons/vue/24/outline'
 import AskAIComponent from './AskAIComponent.vue'
 
+// 类型定义
+interface OptionItem {
+  ts_code: string
+  name?: string
+  opt_code?: string
+  call_put?: string  // 改为string类型以兼容后端数据
+  close?: number
+  settle?: number
+  vol?: number
+  oi?: number
+  pct_change?: number
+  trade_date?: string
+  [key: string]: any  // 允许动态属性访问
+}
+
+interface MarketSummary {
+  totalContracts: number
+  activeContracts: number
+  totalVolume: number
+  totalOI: number
+}
+
+interface ActivityData {
+  totalVolume: number
+  totalAmount: number
+  totalOI: number
+  activeContracts: number
+}
+
+interface TrendStats {
+  latest_value?: number
+  avg_value?: number
+  max_value?: number
+  change_rate?: number
+  latest?: number
+  average?: number
+  max?: number
+  min?: number
+  change_pct?: number
+}
+
+interface OIAnalysis {
+  total_oi?: number
+  avg_oi?: number
+  max_oi?: number
+  contract_count?: number
+  call_oi?: number
+  put_oi?: number
+  call_put_ratio?: number
+  oi_distribution?: Array<{ name: string; value: number }>
+  top_contracts?: OptionItem[]
+}
+
+interface ChartData {
+  name: string
+  fullName: string
+  value: number
+}
+
+type TabType = 'overview' | 'activity' | 'trend' | 'analysis'
+
 // 获取应用状态
 const appStore = useAppStore()
 
 // 响应式状态
-const loading = ref(false)
-const error = ref('')
-const activeTab = ref<'overview' | 'activity' | 'trend' | 'analysis'>('overview')
-const selectedUnderlying = ref('OP000300.SH')
-const selectedCallPut = ref('C')
-const trendDays = ref(30)
-const trendIndicator = ref('close')
+const loading = ref<boolean>(false)
+const error = ref<string>('')
+const activeTab = ref<TabType>('overview')
+const selectedUnderlying = ref<string>('OP000300.SH')
+const selectedCallPut = ref<'C' | 'P'>('C')
+const trendDays = ref<number>(30)
+const trendIndicator = ref<string>('close')
 
 // 数据状态
-const marketSummary = ref({
+const marketSummary = ref<MarketSummary>({
   totalContracts: 0,
   activeContracts: 0,
   totalVolume: 0,
   totalOI: 0
 })
 
-const activityData = ref({
+const activityData = ref<ActivityData>({
   totalVolume: 0,
   totalAmount: 0,
   totalOI: 0,
   activeContracts: 0
 })
 
-const topContractsByVolume = ref<any[]>([])
-const topContractsByOI = ref<any[]>([])
-const latestOptionsData = ref<any[]>([])
-const trendData = ref<any[]>([])
-const trendStats = ref<any>(null)
-const oiAnalysis = ref<any>(null)
+const topContractsByVolume = ref<OptionItem[]>([])
+const topContractsByOI = ref<OptionItem[]>([])
+const latestOptionsData = ref<OptionItem[]>([])
+const trendData = ref<OptionItem[]>([])
+const trendStats = ref<TrendStats | null>(null)
+const oiAnalysis = ref<OIAnalysis | null>(null)
 
 // 图表实例
 const volumeChartContainer = ref<HTMLElement | null>(null)
@@ -342,8 +404,8 @@ const aiDataContext = computed(() => {
     summary += `\n\n市场概览:\n- 合约总数: ${marketSummary.value.totalContracts}\n- 活跃合约: ${marketSummary.value.activeContracts}\n- 总成交量: ${formatNumber(marketSummary.value.totalVolume)}\n- 总持仓量: ${formatNumber(marketSummary.value.totalOI)}`
     
     if (latestOptionsData.value.length > 0) {
-      summary += `\n\n最新期权数据 (前5名):\n${latestOptionsData.value.slice(0, 5).map((item, index) => 
-        `${index + 1}. ${item.ts_code} - 收盘价: ${item.close}, 成交量: ${formatNumber(item.vol)}, 持仓量: ${formatNumber(item.oi)}`
+      summary += `\n\n最新期权数据 (前5名):\n${latestOptionsData.value.slice(0, 5).map((item: OptionItem, index: number) => 
+        `${index + 1}. ${item.ts_code} - 收盘价: ${item.close}, 成交量: ${formatNumber(item.vol || 0)}, 持仓量: ${formatNumber(item.oi || 0)}`
       ).join('\n')}`
     }
     
@@ -356,14 +418,14 @@ const aiDataContext = computed(() => {
     summary += `\n\n活跃度统计:\n- 总成交量: ${formatNumber(activityData.value.totalVolume)}\n- 总成交额: ${formatNumber(activityData.value.totalAmount)}\n- 总持仓量: ${formatNumber(activityData.value.totalOI)}\n- 活跃合约数: ${activityData.value.activeContracts}`
     
     if (topContractsByVolume.value.length > 0) {
-      summary += `\n\n成交量排行 (前5名):\n${topContractsByVolume.value.slice(0, 5).map((item, index) => 
-        `${index + 1}. ${item.ts_code} - 成交量: ${formatNumber(item.vol)}, 涨跌幅: ${item.pct_change?.toFixed(2) || 0}%`
+      summary += `\n\n成交量排行 (前5名):\n${topContractsByVolume.value.slice(0, 5).map((item: OptionItem, index: number) => 
+        `${index + 1}. ${item.ts_code} - 成交量: ${formatNumber(item.vol || 0)}, 涨跌幅: ${item.pct_change?.toFixed(2) || 0}%`
       ).join('\n')}`
     }
     
     if (topContractsByOI.value.length > 0) {
-      summary += `\n\n持仓量排行 (前5名):\n${topContractsByOI.value.slice(0, 5).map((item, index) => 
-        `${index + 1}. ${item.ts_code} - 持仓量: ${formatNumber(item.oi)}, 涨跌幅: ${item.pct_change?.toFixed(2) || 0}%`
+      summary += `\n\n持仓量排行 (前5名):\n${topContractsByOI.value.slice(0, 5).map((item: OptionItem, index: number) => 
+        `${index + 1}. ${item.ts_code} - 持仓量: ${formatNumber(item.oi || 0)}, 涨跌幅: ${item.pct_change?.toFixed(2) || 0}%`
       ).join('\n')}`
     }
     
@@ -383,8 +445,8 @@ const aiDataContext = computed(() => {
     
     if (trendData.value.length > 0) {
       const recentData = trendData.value.slice(-5)
-      summary += `\n\n最近5个交易日数据:\n${recentData.map(item => 
-        `${item.trade_date}: ${item[trendIndicator.value]}`
+      summary += `\n\n最近5个交易日数据:\n${recentData.map((item: OptionItem) => 
+        `${item.trade_date}: ${(item as any)[trendIndicator.value]}`
       ).join('\n')}`
     }
     
@@ -438,7 +500,7 @@ const getIndicatorLabel = (indicator: string): string => {
 // 事件处理
 const onTabChange = (tab: string | number | boolean | undefined) => {
   if (typeof tab === 'string' && ['overview', 'activity', 'trend', 'analysis'].includes(tab)) {
-    activeTab.value = tab as 'overview' | 'activity' | 'trend' | 'analysis'
+    activeTab.value = tab as TabType
     loadData()
   }
 }
@@ -740,7 +802,7 @@ const renderVolumeDistributionChart = () => {
   ]
   
   const volumeData = volumeRanges.map(range => {
-    const count = latestOptionsData.value.filter((item: any) => {
+    const count = latestOptionsData.value.filter((item: OptionItem) => {
       const vol = item.vol || 0
       return vol >= range.min && vol < range.max
     }).length
@@ -799,7 +861,7 @@ const renderVolumeDistributionChart = () => {
     }]
   }
   
-  volumeChart.value.setOption(option)
+  volumeChart.value?.setOption(option)
   // console.log('✅ 交易量分布图表已设置选项并渲染')
 }
 
@@ -822,7 +884,7 @@ const renderOIDistributionChart = () => {
   ]
   
   const oiData = oiRanges.map(range => {
-    const count = latestOptionsData.value.filter((item: any) => {
+    const count = latestOptionsData.value.filter((item: OptionItem) => {
       const oi = item.oi || 0
       return oi >= range.min && oi < range.max
     }).length
@@ -879,7 +941,7 @@ const renderOIDistributionChart = () => {
     }]
   }
   
-  oiChart.value.setOption(option)
+  oiChart.value?.setOption(option)
 }
 
 const renderActivityCharts = () => {
@@ -912,14 +974,18 @@ const renderVolumeRankingChart = () => {
   volumeRankingChart.value = echarts.init(volumeRankingChartContainer.value)
   // console.log('✅ 交易量排名图表实例已创建')
   
-  const data = topContractsByVolume.value.slice(0, 10).map((item: any, index: number) => {
-    // 简化合约名称显示
+  const data: ChartData[] = topContractsByVolume.value.slice(0, 10).map((item: OptionItem, index: number) => {
+    // 生成正确的合约名称
     let displayName = item.name || item.opt_code || item.ts_code || `合约${index + 1}`
     
-    // 生成友好的合约名称
-    if (item.ts_code) {
-      const callPut = item.call_put || (item.ts_code.includes('C') ? 'C' : 'P')
-      displayName = `300ETF${callPut === 'C' ? '看涨' : '看跌'}${index + 1}`
+    // 如果有合约代码，生成更友好的显示名称
+    if (item.ts_code && item.call_put) {
+      // 获取标的简称
+      const underlyingShort = selectedUnderlying.value === 'OP000300.SH' ? '300ETF' : 
+                             selectedUnderlying.value === 'OP000852.SH' ? '1000ETF' :
+                             selectedUnderlying.value === 'OP000016.SH' ? '50ETF' : 'ETF'
+      const callPutText = item.call_put === 'C' ? '看涨' : '看跌'
+      displayName = `${underlyingShort}${callPutText}${index + 1}`
     }
     
     return {
@@ -961,7 +1027,7 @@ const renderVolumeRankingChart = () => {
     },
     xAxis: {
       type: 'category',
-      data: data.map(item => item.name),
+      data: data.map((item: ChartData) => item.name),
       axisLabel: {
         ...theme.xAxis.axisLabel,
         rotate: 45
@@ -973,7 +1039,7 @@ const renderVolumeRankingChart = () => {
       ...theme.yAxis
     },
     series: [{
-      data: data.map(item => item.value),
+      data: data.map((item: ChartData) => item.value),
       type: 'bar',
       itemStyle: {
         color: '#409EFF'  // 使用明确的蓝色
@@ -988,15 +1054,15 @@ const renderVolumeRankingChart = () => {
     }
   }
   
-  volumeRankingChart.value.setOption(option)
+  volumeRankingChart.value?.setOption(option)
   // console.log('✅ 交易量排名图表已设置选项并渲染')
   
   // 添加鼠标事件监听器用于调试
-  volumeRankingChart.value.on('mouseover', function(params: any) {
+  volumeRankingChart.value?.on('mouseover', function(params: any) {
     // console.log('📊 交易量排名图表 mouseover 事件:', params)  
   })
   
-  volumeRankingChart.value.on('mouseout', function(params: any) {
+  volumeRankingChart.value?.on('mouseout', function(params: any) {
     // console.log('📊 交易量排名图表 mouseout 事件:', params)
   })
 }
@@ -1010,14 +1076,18 @@ const renderOIRankingChart = () => {
   
   oiRankingChart.value = echarts.init(oiRankingChartContainer.value)
   
-  const data = topContractsByOI.value.slice(0, 10).map((item: any, index: number) => {
-    // 简化合约名称显示
+  const data: ChartData[] = topContractsByOI.value.slice(0, 10).map((item: OptionItem, index: number) => {
+    // 生成正确的合约名称
     let displayName = item.name || item.opt_code || item.ts_code || `合约${index + 1}`
     
-    // 生成友好的合约名称
-    if (item.ts_code) {
-      const callPut = item.call_put || (item.ts_code.includes('C') ? 'C' : 'P')
-      displayName = `300ETF${callPut === 'C' ? '看涨' : '看跌'}${index + 1}`
+    // 如果有合约代码，生成更友好的显示名称
+    if (item.ts_code && item.call_put) {
+      // 获取标的简称
+      const underlyingShort = selectedUnderlying.value === 'OP000300.SH' ? '300ETF' : 
+                             selectedUnderlying.value === 'OP000852.SH' ? '1000ETF' :
+                             selectedUnderlying.value === 'OP000016.SH' ? '50ETF' : 'ETF'
+      const callPutText = item.call_put === 'C' ? '看涨' : '看跌'
+      displayName = `${underlyingShort}${callPutText}${index + 1}`
     }
     
     return {
@@ -1057,7 +1127,7 @@ const renderOIRankingChart = () => {
     },
     xAxis: {
       type: 'category',
-      data: data.map(item => item.name),
+      data: data.map((item: ChartData) => item.name),
       axisLabel: {
         ...theme.xAxis.axisLabel,
         rotate: 45
@@ -1069,7 +1139,7 @@ const renderOIRankingChart = () => {
       ...theme.yAxis
     },
     series: [{
-      data: data.map(item => item.value),
+      data: data.map((item: ChartData) => item.value),
       type: 'bar',
       itemStyle: {
         color: '#67C23A'  // 使用明确的绿色
@@ -1084,15 +1154,15 @@ const renderOIRankingChart = () => {
     }
   }
   
-  oiRankingChart.value.setOption(option)
+  oiRankingChart.value?.setOption(option)
   // console.log('✅ 持仓量排名图表已设置选项并渲染')  
   
   // 添加鼠标事件监听器用于调试
-  oiRankingChart.value.on('mouseover', function(params: any) {
+  oiRankingChart.value?.on('mouseover', function(params: any) {
     // console.log('🎯 持仓量排名图表 mouseover 事件:', params)
   })
   
-  oiRankingChart.value.on('mouseout', function(params: any) {
+  oiRankingChart.value?.on('mouseout', function(params: any) {
     // console.log('🎯 持仓量排名图表 mouseout 事件:', params)
   })
 }
@@ -1120,8 +1190,8 @@ const renderTrendChart = () => {
   
   trendChart.value = echarts.init(trendChartContainer.value)
   
-  const dates = trendData.value.map(item => item.trade_date)
-  const values = trendData.value.map(item => item[trendIndicator.value])
+  const dates = trendData.value.map((item: OptionItem) => item.trade_date)
+  const values = trendData.value.map((item: OptionItem) => (item as any)[trendIndicator.value])
   
   const theme = getChartTheme()
   
@@ -1210,14 +1280,14 @@ const renderTrendChart = () => {
     }
   }
   
-  trendChart.value.setOption(option)
+  trendChart.value?.setOption(option)
   
   // 添加调试事件监听
-  trendChart.value.on('mouseover', function(params) {
+  trendChart.value?.on('mouseover', function(params: any) {
     // console.log('🖱️ 鼠标悬停事件触发:', params)
   })
   
-  trendChart.value.on('mouseout', function(params) {
+  trendChart.value?.on('mouseout', function(params: any) {
     // console.log('🖱️ 鼠标离开事件触发:', params)
   })
   
@@ -1291,7 +1361,7 @@ const renderOIDistributionAnalysisChart = () => {
     }]
   }
   
-  oiDistributionChart.value.setOption(option)
+  oiDistributionChart.value?.setOption(option)
 }
 
 const renderTopOIContractsChart = () => {
@@ -1304,7 +1374,7 @@ const renderTopOIContractsChart = () => {
   topOIChart.value = echarts.init(topOIChartContainer.value)
   
   // 使用真实的TOP合约数据
-  const topData = oiAnalysis.value.top_contracts?.slice(0, 10).map((item: any, index: number) => {
+  const topData: ChartData[] = oiAnalysis.value.top_contracts?.slice(0, 10).map((item: OptionItem, index: number) => {
     // console.log('📊 处理TOP合约数据:', item)
     // 简化合约名称显示
     let displayName = item.name || item.opt_code || item.ts_code || `合约${index + 1}`
@@ -1356,7 +1426,7 @@ const renderTopOIContractsChart = () => {
     },
     xAxis: {
       type: 'category',
-      data: topData.map((item: any) => item.name),
+      data: topData.map((item: ChartData) => item.name),
       ...theme.xAxis
     },
     yAxis: {
@@ -1364,7 +1434,7 @@ const renderTopOIContractsChart = () => {
       ...theme.yAxis
     },
     series: [{
-      data: topData.map((item: any) => item.value),
+      data: topData.map((item: ChartData) => item.value),
       type: 'bar',
       itemStyle: {
         color: '#F56C6C'
@@ -1379,7 +1449,7 @@ const renderTopOIContractsChart = () => {
     }
   }
   
-  topOIChart.value.setOption(option)
+  topOIChart.value?.setOption(option)
 }
 
 // 响应式处理

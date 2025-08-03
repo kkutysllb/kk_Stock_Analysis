@@ -247,7 +247,7 @@
 
           <!-- 辅助图表 - 可折叠展示 -->
           <div class="auxiliary-charts">
-            <el-collapse>
+            <el-collapse @change="onCollapseChange">
               <el-collapse-item title="查看价格与成交量拟合分析" name="auxiliary">
                 <div class="charts-grid secondary">
                   <div class="chart-container">
@@ -363,20 +363,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import {
-  PresentationChartLineIcon,
-  AdjustmentsHorizontalIcon,
+  ChartBarIcon as PresentationChartLineIcon,
+  CogIcon as AdjustmentsHorizontalIcon,
   StarIcon,
-  ArrowTrendingUpIcon,
-  ArrowTrendingDownIcon,
+  ArrowUpIcon as ArrowTrendingUpIcon,
+  ArrowDownIcon as ArrowTrendingDownIcon,
   ChartBarIcon,
   HeartIcon,
-  ArrowsRightLeftIcon,
+  ArrowRightIcon as ArrowsRightLeftIcon,
   LightBulbIcon,
-  CheckCircleIcon
+  CheckIcon as CheckCircleIcon
 } from '@heroicons/vue/24/outline'
 
 import { apiClient } from '@/api/base'
@@ -388,10 +388,10 @@ const analysisResult = ref<any>(null)
 const currentPeriod = ref('')
 
 // 图表容器引用
-const rzyeChartContainer = ref<HTMLElement>()
-const rqyeChartContainer = ref<HTMLElement>()
-const priceChartContainer = ref<HTMLElement>()
-const volumeChartContainer = ref<HTMLElement>()
+const rzyeChartContainer = ref<HTMLElement | null>(null)
+const rqyeChartContainer = ref<HTMLElement | null>(null)
+const priceChartContainer = ref<HTMLElement | null>(null)
+const volumeChartContainer = ref<HTMLElement | null>(null)
 
 // 图表实例
 let rzyeChart: echarts.ECharts | null = null
@@ -413,16 +413,17 @@ const triggerAnalysis = async () => {
 
     if (response.success && response.data) {
       analysisResult.value = response.data
-      // console.log('两市融资融券分析结果:', response.data)  
-      // console.log(`分析周期: ${response.data.period}, 数据量: ${response.data.data_count}条`)
-      // console.log(`时间范围: ${response.data.start_date} ~ ${response.data.end_date}`)
+      // console.log('两市融资融券分析结果:', response.data)
       
       // 更新当前显示的周期信息
       currentPeriod.value = response.data.period || `近${selectedYears.value}年`
       
-      // 创建图表
+      // 创建图表 - 确保DOM完全渲染
       await nextTick()
-      createCharts()
+      // 额外延迟确保所有DOM元素都已准备就绪
+      setTimeout(() => {
+        createCharts()
+      }, 300)
       
       ElMessage.success(`${response.data.period}融资融券分析完成 (${response.data.data_count}条数据)`)
     } else {
@@ -445,10 +446,75 @@ const onPeriodChange = () => {
   triggerAnalysis()
 }
 
+// 处理折叠面板展开事件
+const onCollapseChange = (activeNames: string | string[]) => {
+  // 当辅助图表面板展开时，重新调整图表尺寸
+  const isExpanded = Array.isArray(activeNames) ? activeNames.includes('auxiliary') : activeNames === 'auxiliary'
+  
+  if (isExpanded) {
+    console.log('📊 折叠面板展开，准备创建辅助图表...')
+    // 延迟执行，确保DOM已更新
+    setTimeout(() => {
+      // 只有当数据存在时才创建图表
+      if (!analysisResult.value) {
+        console.warn('⚠️ 数据不存在，跳过图表创建')
+        return
+      }
+      
+      // 检查价格图表是否存在并且有效
+      if (priceChart && !priceChart.isDisposed()) {
+        const container = priceChartContainer.value
+        if (container && container.clientWidth > 0 && container.clientHeight > 0) {
+          priceChart.resize()
+        }
+      } else if (analysisResult.value?.price_fitting) {
+        // 如果图表不存在，重新创建
+        createTrendChart(
+          priceChartContainer.value,
+          analysisResult.value.price_fitting,
+          '价格指数',
+          '#ffa500',
+          (chart) => { priceChart = chart }
+        )
+      }
+      
+      // 检查成交量图表是否存在并且有效
+      if (volumeChart && !volumeChart.isDisposed()) {
+        const container = volumeChartContainer.value
+        if (container && container.clientWidth > 0 && container.clientHeight > 0) {
+          volumeChart.resize()
+        }
+      } else if (analysisResult.value?.volume_fitting) {
+        // 如果图表不存在，重新创建
+        createTrendChart(
+          volumeChartContainer.value,
+          analysisResult.value.volume_fitting,
+          '成交量',
+          '#9d50bb',
+          (chart) => { volumeChart = chart }
+        )
+      }
+    }, 400) // 增加延迟时间确保折叠动画完成
+  } else {
+    // 折叠面板关闭时，清理辅助图表以释放内存
+    console.log('📊 折叠面板关闭，清理辅助图表...')
+    if (priceChart && !priceChart.isDisposed()) {
+      priceChart.dispose()
+      priceChart = null
+      console.log('✅ 价格图表已清理')
+    }
+    if (volumeChart && !volumeChart.isDisposed()) {
+      volumeChart.dispose()
+      volumeChart = null
+      console.log('✅ 成交量图表已清理')
+    }
+  }
+}
+
 const createCharts = () => {
   if (!analysisResult.value) return
 
-  // 销毁已存在的图表实例
+  // 销毁已存在的主要图表实例（融资融券图表）
   if (rzyeChart) {
     rzyeChart.dispose()
     rzyeChart = null
@@ -457,14 +523,9 @@ const createCharts = () => {
     rqyeChart.dispose()
     rqyeChart = null
   }
-  if (priceChart) {
-    priceChart.dispose()
-    priceChart = null
-  }
-  if (volumeChart) {
-    volumeChart.dispose()
-    volumeChart = null
-  }
+  
+  // 注意：价格和成交量图表不在这里清理
+  // 它们由折叠面板的状态变化单独管理
 
   // 创建融资余额趋势图
   createTrendChart(
@@ -484,38 +545,72 @@ const createCharts = () => {
     (chart) => { rqyeChart = chart }
   )
 
-  // 创建价格趋势图
-  createTrendChart(
-    priceChartContainer.value,
-    analysisResult.value.price_fitting,
-    '价格指数',
-    '#ffa500',
-    (chart) => { priceChart = chart }
-  )
-
-  // 创建成交量趋势图
-  createTrendChart(
-    volumeChartContainer.value,
-    analysisResult.value.volume_fitting,
-    '成交量',
-    '#9d50bb',
-    (chart) => { volumeChart = chart }
-  )
+  // 注意：价格指数图表和成交量图表不在这里创建
+  // 它们位于折叠面板中，只有在面板展开时才创建（通过 onCollapseChange 处理）
 }
 
 const createTrendChart = (
-  container: HTMLElement | undefined, 
+  container: HTMLElement | undefined | null, 
   fittingData: any, 
   name: string, 
   color: string,
   onChart: (chart: echarts.ECharts) => void
 ) => {
-  if (!container || !fittingData) return
+  if (!container || !fittingData) {
+    console.warn(`⚠️ ${name}图表创建失败: 容器=${!!container}, 数据=${!!fittingData}`)
+    return
+  }
 
-  const chart = echarts.init(container)
-  onChart(chart)
+  // 检查容器尺寸
+  const checkContainerSize = () => {
+    const width = container.clientWidth
+    const height = container.clientHeight
+    console.log(`📏 ${name}容器尺寸:`, { width, height })
+    return width > 0 && height > 0
+  }
 
-  const option = {
+  // 如果容器尺寸为0，等待DOM渲染完成
+  if (!checkContainerSize()) {
+    console.warn(`⚠️ ${name}容器尺寸为0，等待DOM渲染...`)
+    
+    // 使用重试机制确保容器准备就绪
+    let retryCount = 0
+    const maxRetries = 10
+    
+    const initChart = () => {
+      retryCount++
+      if (checkContainerSize()) {
+        createChart()
+      } else if (retryCount < maxRetries) {
+        // 继续等待，最多重试10次
+        setTimeout(initChart, 200)
+      } else {
+        console.error(`❌ ${name}图表创建失败：重试${maxRetries}次后容器尺寸仍为0`)
+      }
+    }
+    
+    setTimeout(initChart, 100)
+    return
+  }
+
+  createChart()
+
+  function createChart() {
+    if (!checkContainerSize()) {
+      console.warn(`⚠️ ${name}容器尺寸仍为0，跳过图表创建`)
+      return
+    }
+
+    // 确保容器存在后再初始化图表
+    if (!container) {
+      console.warn(`⚠️ ${name}容器不存在`)
+      return
+    }
+
+    const chart = echarts.init(container)
+    onChart(chart)
+
+    const option = {
     tooltip: {
       trigger: 'axis',
       backgroundColor: 'rgba(0, 0, 0, 0.8)',
@@ -528,7 +623,9 @@ const createTrendChart = (
     },
     xAxis: {
       type: 'category',
-      data: fittingData.data_points.map((_: any, index: number) => `第${index + 1}天`),
+      data: fittingData.data_points && Array.isArray(fittingData.data_points) 
+        ? fittingData.data_points.map((_: any, index: number) => `第${index + 1}天`)
+        : [],
       axisLine: { lineStyle: { color: '#333' } },
       axisLabel: { color: '#999' }
     },
@@ -544,14 +641,18 @@ const createTrendChart = (
       {
         name: '实际数据',
         type: 'scatter',
-        data: fittingData.data_points.map((point: any) => point.y),
+        data: fittingData.data_points && Array.isArray(fittingData.data_points) 
+          ? fittingData.data_points.map((point: any) => point.y || 0)
+          : [],
         itemStyle: { color: color },
         symbolSize: 4
       },
       {
         name: '拟合趋势',
         type: 'line',
-        data: fittingData.trend_line.map((point: any) => point.y),
+        data: fittingData.trend_line && Array.isArray(fittingData.trend_line) 
+          ? fittingData.trend_line.map((point: any) => point.y || 0)
+          : [],
         smooth: false,
         lineStyle: { color: color, width: 2 },
         itemStyle: { color: color }
@@ -565,7 +666,16 @@ const createTrendChart = (
     }
   }
 
-  chart.setOption(option)
+    chart.setOption(option)
+    
+    // 延迟resize确保图表正确显示
+    setTimeout(() => {
+      if (chart && !chart.isDisposed()) {
+        chart.resize()
+        console.log(`✅ ${name}图表创建成功并已resize`)
+      }
+    }, 100)
+  }
 }
 
 // 工具函数
@@ -793,13 +903,25 @@ const getInvestmentAdvice = (result: any): string => {
   return advice
 }
 
-// 组件销毁时清理图表
+// 组件挂载时初始化
 onMounted(() => {
-  return () => {
-    if (rzyeChart) rzyeChart.dispose()
-    if (rqyeChart) rqyeChart.dispose()
-    if (priceChart) priceChart.dispose()
-    if (volumeChart) volumeChart.dispose()
+  // 组件挂载完成，可以在这里执行初始化逻辑
+})
+
+// 组件销毁时清理图表
+onUnmounted(() => {
+  // 清理所有图表实例
+  if (rzyeChart && !rzyeChart.isDisposed()) {
+    rzyeChart.dispose()
+  }
+  if (rqyeChart && !rqyeChart.isDisposed()) {
+    rqyeChart.dispose()
+  }
+  if (priceChart && !priceChart.isDisposed()) {
+    priceChart.dispose()
+  }
+  if (volumeChart && !volumeChart.isDisposed()) {
+    volumeChart.dispose()
   }
 })
 </script>
@@ -1100,6 +1222,10 @@ onMounted(() => {
 .chart-element {
   width: 100%;
   height: 200px;
+  min-height: 200px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
 }
 
 /* ========== 结论分析 ========== */

@@ -50,7 +50,7 @@
               </el-tag>
             </div>
             <div class="indicator-chart">
-              <div :ref="el => setChartRef(indicator.name, el)" :data-chart="indicator.name" class="mini-chart"></div>
+              <div :ref="(el: HTMLElement | null) => setChartRef(indicator.name, el)" :data-chart="indicator.name" class="mini-chart"></div>
             </div>
           </div>
         </div>
@@ -97,10 +97,10 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
-import { InfoFilled, TrendCharts } from '@element-plus/icons-vue'
+import { InfoFilled, TrendingUp as TrendCharts } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
-import { useAppStore } from '@/stores/app'
-import { apiClient } from '@/api/base'
+import { useAppStore } from '../stores/app'
+import { apiClient } from '../api/base'
 import { ElMessage } from 'element-plus'
 import AskAIComponent from './AskAIComponent.vue'
 
@@ -131,12 +131,12 @@ const timeRange = ref('30d')
 const loading = ref(false)
 
 // 图表引用
-const gaugeChart = ref<HTMLElement>()
+const gaugeChart = ref<HTMLElement | null>(null)
 let gaugeChartInstance: echarts.ECharts | null = null
 const miniChartInstances: Record<string, echarts.ECharts> = {}
 
 // 设置图表引用
-const setChartRef = (name: string, el: any) => {
+const setChartRef = (name: string, el: HTMLElement | null) => {
   if (el && !miniChartInstances[name]) {
     nextTick(() => {
       initMiniChart(name, el as HTMLElement)
@@ -205,7 +205,7 @@ const aiDataContext = computed(() => {
   const getHistoricalStats = (data: Array<[string, number]>) => {
     if (!data || data.length === 0) return null
     
-    const values = data.map(item => item[1])
+    const values = data.map((item: [string, number]) => item[1])
     const sorted = [...values].sort((a, b) => a - b)
     
     return {
@@ -225,7 +225,7 @@ const aiDataContext = computed(() => {
     data: {
       timeRange: timeRange.value,
       overallSentiment: overallSentiment.value,
-      indicators: sentimentData.value.map(indicator => {
+      indicators: sentimentData.value.map((indicator: any) => {
         const stats = getHistoricalStats(indicator.data)
         return {
           name: indicator.name,
@@ -240,10 +240,10 @@ const aiDataContext = computed(() => {
         }
       }),
       summary: {
-        bullishCount: sentimentData.value.filter(item => item.level === 'bullish').length,
-        bearishCount: sentimentData.value.filter(item => item.level === 'bearish').length,
-        neutralCount: sentimentData.value.filter(item => item.level === 'neutral').length,
-        totalDataPoints: sentimentData.value.reduce((sum, item) => sum + (item.data?.length || 0), 0)
+        bullishCount: sentimentData.value.filter((item: any) => item.level === 'bullish').length,
+        bearishCount: sentimentData.value.filter((item: any) => item.level === 'bearish').length,
+        neutralCount: sentimentData.value.filter((item: any) => item.level === 'neutral').length,
+        totalDataPoints: sentimentData.value.reduce((sum: number, item: any) => sum + (item.data?.length || 0), 0)
       }
     },
     summary: `市场情绪分析完整数据（${timeRange.value}）：
@@ -253,7 +253,7 @@ const aiDataContext = computed(() => {
 - 主要因素：${overallSentiment.value.factors.join('，')}
 
 ## 各项指标详情
-${sentimentData.value.map(indicator => {
+${sentimentData.value.map((indicator: any) => {
   const stats = getHistoricalStats(indicator.data)
   const trendText = stats ? (stats.trend > 0 ? '上升' : stats.trend < 0 ? '下降' : '平稳') : '无数据'
   const levelText = indicator.level === 'bullish' ? '看涨' : indicator.level === 'bearish' ? '看跌' : '中性'
@@ -273,19 +273,19 @@ ${stats ? `- 历史统计：
 }).join('\n\n')}
 
 ## 历史数据时间序列
-${sentimentData.value.map(indicator => {
+${sentimentData.value.map((indicator: any) => {
   if (!indicator.data || indicator.data.length === 0) return `${indicator.name}：无历史数据`
   
   const recentData = indicator.data.slice(-10) // 最近10个数据点
   return `${indicator.name}（最近${recentData.length}个数据点）：
-${recentData.map(([date, value]) => `  ${date}: ${value}${indicator.unit}`).join('\n')}`
+${recentData.map(([date, value]: [string, number]) => `  ${date}: ${value}${indicator.unit}`).join('\n')}`
 }).join('\n\n')}
 
 ## 市场情绪汇总
-- 看涨指标：${sentimentData.value.filter(item => item.level === 'bullish').length}个
-- 看跌指标：${sentimentData.value.filter(item => item.level === 'bearish').length}个  
-- 中性指标：${sentimentData.value.filter(item => item.level === 'neutral').length}个
-- 总数据点：${sentimentData.value.reduce((sum, item) => sum + (item.data?.length || 0), 0)}个
+- 看涨指标：${sentimentData.value.filter((item: any) => item.level === 'bullish').length}个
+- 看跌指标：${sentimentData.value.filter((item: any) => item.level === 'bearish').length}个  
+- 中性指标：${sentimentData.value.filter((item: any) => item.level === 'neutral').length}个
+- 总数据点：${sentimentData.value.reduce((sum: number, item: any) => sum + (item.data?.length || 0), 0)}个
 
 请基于以上完整的市场情绪数据（包括历史数据和统计信息）进行深入分析，提供投资建议和风险提示。`
   }
@@ -351,7 +351,7 @@ const fetchSentimentData = async () => {
       })
       
       // 重新初始化所有迷你图表
-      sentimentData.value.forEach((indicator, index) => {
+      sentimentData.value.forEach((indicator: any, index: number) => {
         if (indicator.data && indicator.data.length > 0) {
           const chartElement = document.querySelector(`[data-chart="${indicator.name}"]`) as HTMLElement
           if (chartElement) {
@@ -507,7 +507,7 @@ const initGaugeChart = () => {
     ]
   }
   
-  gaugeChartInstance.setOption(option)
+  gaugeChartInstance?.setOption(option)
 }
 
 // 初始化迷你图表
@@ -524,13 +524,13 @@ const initMiniChart = (name: string, element: HTMLElement) => {
       existingInstance.dispose()
     }
     const chartInstance = echarts.init(element)
-  const indicator = sentimentData.value.find(item => item.name === name)
+  const indicator = sentimentData.value.find((item: any) => item.name === name)
   const data = indicator?.data || []
   
   if (data.length === 0) return
   
   // 计算数据范围
-  const values = data.map(item => item[1])
+  const values = data.map((item: [string, number]) => item[1])
   const minValue = Math.min(...values)
   const maxValue = Math.max(...values)
   const range = maxValue - minValue
@@ -579,7 +579,7 @@ const initMiniChart = (name: string, element: HTMLElement) => {
     xAxis: {
       type: 'category',
       show: false,
-      data: data.map(item => item[0])
+      data: data.map((item: [string, number]) => item[0])
     },
     yAxis: {
       type: 'value',
@@ -589,7 +589,7 @@ const initMiniChart = (name: string, element: HTMLElement) => {
     },
     series: [
       {
-        data: data.map(item => item[1]),
+        data: data.map((item: [string, number]) => item[1]),
         type: 'line',
         smooth: true,
         symbol: 'none',
@@ -642,10 +642,10 @@ const initMiniChart = (name: string, element: HTMLElement) => {
 const updateMiniChart = (name: string, data: any[]) => {
   const chartInstance = miniChartInstances[name]
   if (chartInstance && data && data.length > 0) {
-    const indicator = sentimentData.value.find(item => item.name === name)
+    const indicator = sentimentData.value.find((item: any) => item.name === name)
     
     // 计算数据范围
-    const values = data.map(item => item[1])
+    const values = data.map((item: [string, number]) => item[1])
     const minValue = Math.min(...values)
     const maxValue = Math.max(...values)
     const range = maxValue - minValue
@@ -688,7 +688,7 @@ const updateMiniChart = (name: string, data: any[]) => {
       xAxis: {
         type: 'category',
         show: false,
-        data: data.map(item => item[0])
+        data: data.map((item: [string, number]) => item[0])
       },
       yAxis: {
         type: 'value',
@@ -697,7 +697,7 @@ const updateMiniChart = (name: string, data: any[]) => {
         max: yAxisMax
       },
       series: [{
-        data: data.map(item => item[1]),
+        data: data.map((item: [string, number]) => item[1]),
         type: 'line',
         smooth: true,
         symbol: 'none',
@@ -735,10 +735,7 @@ const updateMiniChart = (name: string, data: any[]) => {
     }
     
     // 使用notMerge=true和lazyUpdate=false强制完全重绘
-    chartInstance.setOption(option, {
-      notMerge: true,
-      lazyUpdate: false
-    })
+    chartInstance.setOption(option, true)
     chartInstance.resize()
   }
 }
@@ -759,9 +756,9 @@ watch(timeRange, () => {
 })
 
 // 监听情绪数据变化
-watch(sentimentData, (newData, _oldData) => {
+watch(() => sentimentData.value, (newData: any[], _oldData: any[]) => {
   nextTick(() => {
-    newData.forEach((indicator, _index) => {
+    newData.forEach((indicator: any, _index: number) => {
       if (indicator.data && indicator.data.length > 0) {
         const chartElement = document.querySelector(`[data-chart="${indicator.name}"]`) as HTMLElement
         if (chartElement) {
@@ -784,8 +781,8 @@ watch(() => appStore.isDarkMode, () => {
     initGaugeChart()
     
     // 更新所有迷你图表
-    Object.keys(miniChartInstances).forEach(name => {
-      const indicator = sentimentData.value.find(item => item.name === name)
+    Object.keys(miniChartInstances).forEach((name: string) => {
+      const indicator = sentimentData.value.find((item: any) => item.name === name)
       if (indicator && indicator.data) {
         updateMiniChart(name, indicator.data)
       }
@@ -807,7 +804,7 @@ const handleResize = () => {
     }
     
     // 调整所有迷你图表大小
-    Object.values(miniChartInstances).forEach(chart => {
+    Object.values(miniChartInstances).forEach((chart: echarts.ECharts) => {
       if (chart) {
         chart.resize()
       }
@@ -825,7 +822,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   gaugeChartInstance?.dispose()
-  Object.values(miniChartInstances).forEach(chart => chart.dispose())
+  Object.values(miniChartInstances).forEach((chart: echarts.ECharts) => chart.dispose())
   
   // 清理防抖定时器
   if (resizeTimer) {

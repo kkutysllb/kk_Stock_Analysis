@@ -998,10 +998,10 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { 
-  Cog6ToothIcon as CogIcon, 
+  CogIcon, 
   ScaleIcon,
   ChartBarIcon,
-  ArrowTrendingUpIcon,
+  TrendingUpIcon as ArrowTrendingUpIcon,
   BoltIcon,
   CurrencyDollarIcon,
   ArrowPathIcon,
@@ -1029,7 +1029,7 @@ const emit = defineEmits<{
 // 响应式数据
 const visible = computed({
   get: () => props.modelValue,
-  set: (value) => emit('update:modelValue', value)
+  set: (value: boolean) => emit('update:modelValue', value)
 })
 
 // 策略图标映射
@@ -1465,7 +1465,7 @@ const parameters = reactive<Record<string, any>>({})
 const weights = reactive<Array<{ key: string; label: string; value: number }>>([])
 
 const totalWeight = computed(() => {
-  return weights.reduce((sum, weight) => sum + weight.value, 0)
+  return weights.reduce((sum: number, weight: any) => sum + weight.value, 0)
 })
 
 // AI数据上下文
@@ -1482,7 +1482,7 @@ const aiDataContext = computed(() => {
     `- ${key}: ${value}`
   ).join('\n')
   
-  const weightsSummary = weights.map(weight => 
+  const weightsSummary = weights.map((weight: any) => 
     `- ${weight.label}: ${weight.value}%`
   ).join('\n')
   
@@ -1534,7 +1534,7 @@ ${weightsSummary || '- 暂无权重配置'}
 
 // 方法
 const handleClose = () => {
-  visible.value = false
+  emit('update:modelValue', false)
 }
 
 const normalizeWeights = () => {
@@ -1566,7 +1566,7 @@ const saveSettings = () => {
   
   const settings = {
     parameters: { ...parameters },
-    weights: weights.reduce((acc, weight) => {
+    weights: weights.reduce((acc: Record<string, number>, weight: any) => {
       acc[weight.key] = weight.value
       return acc
     }, {} as Record<string, number>)
@@ -1574,7 +1574,7 @@ const saveSettings = () => {
   
   emit('save-settings', props.strategyTemplate?.id, settings)
   ElMessage.success('策略参数已保存')
-  visible.value = false
+  emit('update:modelValue', false)
 }
 
 // 初始化数据的函数
