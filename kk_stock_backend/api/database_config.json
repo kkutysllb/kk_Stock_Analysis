@@ -1,0 +1,19 @@
+{
+  "cloud_database": {
+    "host": "118.195.242.207",
+    "port": 27017,
+    "database": "quant_analysis",
+    "username": "root",
+    "password": "example",
+    "authSource": "admin"
+  },
+  "local_database": {
+    "host": "127.0.0.1",
+    "port": 27017,
+    "database": "quant_analysis",
+    "username": "root",
+    "password": "example",
+    "authSource": "admin"
+  },
+  "priority": "local"
+}

@@ -1,0 +1,3667 @@
+{
+  "total_documents": 12173643,
+  "sample_size": 1000,
+  "total_fields": 261,
+  "emotion_fields": [
+    "turnover_rate",
+    "turnover_rate_f",
+    "volume_ratio"
+  ],
+  "trend_fields": [
+    "bias1_bfq",
+    "bias1_hfq",
+    "bias1_qfq",
+    "bias2_bfq",
+    "bias2_hfq",
+    "bias2_qfq",
+    "bias3_bfq",
+    "bias3_hfq",
+    "bias3_qfq",
+    "boll_lower_bfq",
+    "boll_lower_hfq",
+    "boll_lower_qfq",
+    "boll_mid_bfq",
+    "boll_mid_hfq",
+    "boll_mid_qfq",
+    "boll_upper_bfq",
+    "boll_upper_hfq",
+    "boll_upper_qfq",
+    "cci_bfq",
+    "cci_hfq",
+    "cci_qfq",
+    "dfma_dif_bfq",
+    "dfma_dif_hfq",
+    "dfma_dif_qfq",
+    "dfma_difma_bfq",
+    "dfma_difma_hfq",
+    "dfma_difma_qfq",
+    "ema_bfq_10",
+    "ema_bfq_20",
+    "ema_bfq_250",
+    "ema_bfq_30",
+    "ema_bfq_5",
+    "ema_bfq_60",
+    "ema_bfq_90",
+    "ema_hfq_10",
+    "ema_hfq_20",
+    "ema_hfq_250",
+    "ema_hfq_30",
+    "ema_hfq_5",
+    "ema_hfq_60",
+    "ema_hfq_90",
+    "ema_qfq_10",
+    "ema_qfq_20",
+    "ema_qfq_250",
+    "ema_qfq_30",
+    "ema_qfq_5",
+    "ema_qfq_60",
+    "ema_qfq_90",
+    "expma_12_bfq",
+    "expma_12_hfq",
+    "expma_12_qfq",
+    "expma_50_bfq",
+    "expma_50_hfq",
+    "expma_50_qfq",
+    "kdj_bfq",
+    "kdj_d_bfq",
+    "kdj_d_hfq",
+    "kdj_d_qfq",
+    "kdj_hfq",
+    "kdj_k_bfq",
+    "kdj_k_hfq",
+    "kdj_k_qfq",
+    "kdj_qfq",
+    "ma_bfq_10",
+    "ma_bfq_20",
+    "ma_bfq_250",
+    "ma_bfq_30",
+    "ma_bfq_5",
+    "ma_bfq_60",
+    "ma_bfq_90",
+    "ma_hfq_10",
+    "ma_hfq_20",
+    "ma_hfq_250",
+    "ma_hfq_30",
+    "ma_hfq_5",
+    "ma_hfq_60",
+    "ma_hfq_90",
+    "ma_mass_bfq",
+    "ma_mass_hfq",
+    "ma_mass_qfq",
+    "ma_qfq_10",
+    "ma_qfq_20",
+    "ma_qfq_250",
+    "ma_qfq_30",
+    "ma_qfq_5",
+    "ma_qfq_60",
+    "ma_qfq_90",
+    "macd_bfq",
+    "macd_dea_bfq",
+    "macd_dea_hfq",
+    "macd_dea_qfq",
+    "macd_dif_bfq",
+    "macd_dif_hfq",
+    "macd_dif_qfq",
+    "macd_hfq",
+    "macd_qfq",
+    "madpo_bfq",
+    "madpo_hfq",
+    "madpo_qfq",
+    "maemv_bfq",
+    "maemv_hfq",
+    "maemv_qfq",
+    "maroc_bfq",
+    "maroc_hfq",
+    "maroc_qfq",
+    "mass_bfq",
+    "mass_hfq",
+    "mass_qfq",
+    "mtmma_bfq",
+    "mtmma_hfq",
+    "mtmma_qfq",
+    "psyma_bfq",
+    "psyma_hfq",
+    "psyma_qfq",
+    "rsi_bfq_12",
+    "rsi_bfq_24",
+    "rsi_bfq_6",
+    "rsi_hfq_12",
+    "rsi_hfq_24",
+    "rsi_hfq_6",
+    "rsi_qfq_12",
+    "rsi_qfq_24",
+    "rsi_qfq_6",
+    "trma_bfq",
+    "trma_hfq",
+    "trma_qfq"
+  ],
+  "other_fields": [
+    "adj_factor",
+    "amount",
+    "asi_bfq",
+    "asi_hfq",
+    "asi_qfq",
+    "asit_bfq",
+    "asit_hfq",
+    "asit_qfq",
+    "atr_bfq",
+    "atr_hfq",
+    "atr_qfq",
+    "bbi_bfq",
+    "bbi_hfq",
+    "bbi_qfq",
+    "brar_ar_bfq",
+    "brar_ar_hfq",
+    "brar_ar_qfq",
+    "brar_br_bfq",
+    "brar_br_hfq",
+    "brar_br_qfq",
+    "change",
+    "circ_mv",
+    "close",
+    "close_hfq",
+    "close_qfq",
+    "cr_bfq",
+    "cr_hfq",
+    "cr_qfq",
+    "dmi_adx_bfq",
+    "dmi_adx_hfq",
+    "dmi_adx_qfq",
+    "dmi_adxr_bfq",
+    "dmi_adxr_hfq",
+    "dmi_adxr_qfq",
+    "dmi_mdi_bfq",
+    "dmi_mdi_hfq",
+    "dmi_mdi_qfq",
+    "dmi_pdi_bfq",
+    "dmi_pdi_hfq",
+    "dmi_pdi_qfq",
+    "downdays",
+    "dpo_bfq",
+    "dpo_hfq",
+    "dpo_qfq",
+    "dv_ratio",
+    "dv_ttm",
+    "emv_bfq",
+    "emv_hfq",
+    "emv_qfq",
+    "float_share",
+    "free_share",
+    "high",
+    "high_hfq",
+    "high_qfq",
+    "ktn_down_bfq",
+    "ktn_down_hfq",
+    "ktn_down_qfq",
+    "ktn_mid_bfq",
+    "ktn_mid_hfq",
+    "ktn_mid_qfq",
+    "ktn_upper_bfq",
+    "ktn_upper_hfq",
+    "ktn_upper_qfq",
+    "low",
+    "low_hfq",
+    "low_qfq",
+    "lowdays",
+    "mfi_bfq",
+    "mfi_hfq",
+    "mfi_qfq",
+    "mtm_bfq",
+    "mtm_hfq",
+    "mtm_qfq",
+    "obv_bfq",
+    "obv_hfq",
+    "obv_qfq",
+    "open",
+    "open_hfq",
+    "open_qfq",
+    "pb",
+    "pct_chg",
+    "pe",
+    "pe_ttm",
+    "pre_close",
+    "ps",
+    "ps_ttm",
+    "psy_bfq",
+    "psy_hfq",
+    "psy_qfq",
+    "roc_bfq",
+    "roc_hfq",
+    "roc_qfq",
+    "taq_down_bfq",
+    "taq_down_hfq",
+    "taq_down_qfq",
+    "taq_mid_bfq",
+    "taq_mid_hfq",
+    "taq_mid_qfq",
+    "taq_up_bfq",
+    "taq_up_hfq",
+    "taq_up_qfq",
+    "topdays",
+    "total_mv",
+    "total_share",
+    "trade_date",
+    "trix_bfq",
+    "trix_hfq",
+    "trix_qfq",
+    "ts_code",
+    "updays",
+    "vol",
+    "vr_bfq",
+    "vr_hfq",
+    "vr_qfq",
+    "wr1_bfq",
+    "wr1_hfq",
+    "wr1_qfq",
+    "wr_bfq",
+    "wr_hfq",
+    "wr_qfq",
+    "xsii_td1_bfq",
+    "xsii_td1_hfq",
+    "xsii_td1_qfq",
+    "xsii_td2_bfq",
+    "xsii_td2_hfq",
+    "xsii_td2_qfq",
+    "xsii_td3_bfq",
+    "xsii_td3_hfq",
+    "xsii_td3_qfq",
+    "xsii_td4_bfq",
+    "xsii_td4_hfq",
+    "xsii_td4_qfq"
+  ],
+  "field_details": {
+    "ts_code": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "str"
+      ],
+      "sample_values": [
+        "000001.SZ",
+        "000001.SZ",
+        "000001.SZ",
+        "000001.SZ",
+        "000001.SZ"
+      ]
+    },
+    "trade_date": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "str"
+      ],
+      "sample_values": [
+        "20250715",
+        "20250714",
+        "20250711",
+        "20250710",
+        "20250709"
+      ]
+    },
+    "open": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.99,
+        12.87,
+        13.19,
+        12.82,
+        12.66
+      ]
+    },
+    "open_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1711.92352,
+        1696.10899,
+        1738.28108,
+        1689.5196,
+        1668.43355
+      ]
+    },
+    "open_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.99,
+        12.87,
+        13.19,
+        12.82,
+        12.66
+      ]
+    },
+    "high": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        13.04,
+        13.17,
+        13.3,
+        13.33,
+        12.9
+      ]
+    },
+    "high_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1718.51291,
+        1735.64533,
+        1752.77774,
+        1756.73137,
+        1700.06262
+      ]
+    },
+    "high_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        13.04,
+        13.17,
+        13.3,
+        13.33,
+        12.9
+      ]
+    },
+    "low": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.71,
+        12.86,
+        12.89,
+        12.79,
+        12.66
+      ]
+    },
+    "low_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1675.02294,
+        1694.79111,
+        1698.74474,
+        1685.56596,
+        1668.43355
+      ]
+    },
+    "low_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.71,
+        12.86,
+        12.89,
+        12.79,
+        12.66
+      ]
+    },
+    "close": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.73,
+        12.98,
+        12.91,
+        13.18,
+        12.84
+      ]
+    },
+    "close_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1677.65869,
+        1710.60564,
+        1701.3805,
+        1736.9632,
+        1692.15535
+      ]
+    },
+    "close_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.73,
+        12.98,
+        12.91,
+        13.18,
+        12.84
+      ]
+    },
+    "pre_close": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.98,
+        12.91,
+        13.18,
+        12.84,
+        12.69
+      ]
+    },
+    "change": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        -0.25,
+        0.07,
+        -0.27,
+        0.34,
+        0.15
+      ]
+    },
+    "pct_chg": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        -1.926,
+        0.5422,
+        -2.0486,
+        2.648,
+        1.182
+      ]
+    },
+    "vol": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1810531.31,
+        1872895.85,
+        2443743.5,
+        2481415.53,
+        1205963.3
+      ]
+    },
+    "amount": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        2322277.29,
+        2440924.11,
+        3200219.57,
+        3249454.03,
+        1542699.03
+      ]
+    },
+    "turnover_rate": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.933,
+        0.9651,
+        1.2593,
+        1.2787,
+        0.6215
+      ]
+    },
+    "turnover_rate_f": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        2.2187,
+        2.2951,
+        2.9946,
+        3.0408,
+        1.4778
+      ]
+    },
+    "volume_ratio": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1.0,
+        1.07,
+        1.52,
+        1.95,
+        0.95
+      ]
+    },
+    "pe": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        5.5504,
+        5.6594,
+        5.6289,
+        5.7466,
+        5.5984
+      ]
+    },
+    "pe_ttm": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        5.6567,
+        5.7677,
+        5.7366,
+        5.8566,
+        5.7055
+      ]
+    },
+    "pb": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.5757,
+        0.587,
+        0.5838,
+        0.596,
+        0.5806
+      ]
+    },
+    "ps": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1.684,
+        1.7171,
+        1.7078,
+        1.7435,
+        1.6986
+      ]
+    },
+    "ps_ttm": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1.7442,
+        1.7784,
+        1.7689,
+        1.8059,
+        1.7593
+      ]
+    },
+    "dv_ratio": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        7.5805,
+        7.4345,
+        7.4748,
+        7.3217,
+        7.5156
+      ]
+    },
+    "dv_ttm": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        4.7761,
+        4.6842,
+        4.7096,
+        4.6131,
+        4.7352
+      ]
+    },
+    "total_share": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1940591.8198,
+        1940591.8198,
+        1940591.8198,
+        1940591.8198,
+        1940591.8198
+      ]
+    },
+    "float_share": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1940557.185,
+        1940557.185,
+        1940557.185,
+        1940557.185,
+        1940557.185
+      ]
+    },
+    "free_share": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        816045.2412,
+        816045.2412,
+        816045.2412,
+        816045.2412,
+        816045.2412
+      ]
+    },
+    "total_mv": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        24703733.8661,
+        25188881.821,
+        25053040.3936,
+        25577000.185,
+        24917198.9662
+      ]
+    },
+    "circ_mv": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        24703292.9651,
+        25188432.2613,
+        25052593.2584,
+        25576543.6983,
+        24916754.2554
+      ]
+    },
+    "adj_factor": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        131.7878,
+        131.7878,
+        131.7878,
+        131.7878,
+        131.7878
+      ]
+    },
+    "asi_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        29.73349,
+        33.29502,
+        33.24361,
+        30.29209,
+        23.44818
+      ]
+    },
+    "asi_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        4491.64392,
+        4961.0097,
+        4961.8159,
+        4586.20729,
+        3680.93421
+      ]
+    },
+    "asi_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        34.0824,
+        37.64392,
+        37.65004,
+        34.79994,
+        27.93077
+      ]
+    },
+    "asit_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        26.51874,
+        25.2121,
+        23.21239,
+        21.78495,
+        20.78114
+      ]
+    },
+    "asit_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        4068.81135,
+        3896.01555,
+        3632.02695,
+        3442.16043,
+        3306.09367
+      ]
+    },
+    "asit_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        30.87396,
+        29.56279,
+        27.55966,
+        26.11896,
+        25.08649
+      ]
+    },
+    "atr_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.28,
+        0.272,
+        0.2695,
+        0.258,
+        0.2475
+      ]
+    },
+    "atr_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        36.90058,
+        35.84628,
+        35.51681,
+        34.00125,
+        31.82677
+      ]
+    },
+    "atr_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.28,
+        0.272,
+        0.2695,
+        0.258,
+        0.2415
+      ]
+    },
+    "bbi_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.69675,
+        12.71317,
+        12.65892,
+        12.58292,
+        12.46896
+      ]
+    },
+    "bbi_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1673.27675,
+        1675.44027,
+        1668.29078,
+        1658.27491,
+        1643.25659
+      ]
+    },
+    "bbi_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.69675,
+        12.71317,
+        12.65892,
+        12.58292,
+        12.46896
+      ]
+    },
+    "bias1_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        -1.229,
+        0.646,
+        0.597,
+        3.454,
+        1.932
+      ]
+    },
+    "bias1_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        -1.229,
+        0.646,
+        0.597,
+        3.454,
+        1.932
+      ]
+    },
+    "bias1_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        -1.229,
+        0.646,
+        0.597,
+        3.454,
+        1.932
+      ]
+    },
+    "bias2_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.666,
+        3.002,
+        2.834,
+        5.581,
+        3.723
+      ]
+    },
+    "bias2_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.666,
+        3.002,
+        2.834,
+        5.581,
+        3.723
+      ]
+    },
+    "bias2_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.666,
+        3.002,
+        2.834,
+        5.581,
+        3.723
+      ]
+    },
+    "bias3_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        3.777,
+        6.132,
+        5.983,
+        8.645,
+        6.383
+      ]
+    },
+    "bias3_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        3.777,
+        6.263,
+        6.244,
+        9.047,
+        6.911
+      ]
+    },
+    "bias3_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        3.777,
+        6.263,
+        6.244,
+        9.047,
+        6.911
+      ]
+    },
+    "boll_lower_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        11.52,
+        11.447,
+        11.41,
+        11.346,
+        11.368
+      ]
+    },
+    "boll_lower_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1518.202,
+        1508.576,
+        1503.746,
+        1495.257,
+        1498.178
+      ]
+    },
+    "boll_lower_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        11.52,
+        11.447,
+        11.41,
+        11.346,
+        11.368
+      ]
+    },
+    "boll_mid_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.379,
+        12.331,
+        12.272,
+        12.205,
+        12.13
+      ]
+    },
+    "boll_mid_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1631.467,
+        1625.075,
+        1617.234,
+        1608.47,
+        1598.586
+      ]
+    },
+    "boll_mid_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.38,
+        12.331,
+        12.272,
+        12.205,
+        12.13
+      ]
+    },
+    "boll_upper_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        13.239,
+        13.215,
+        13.133,
+        13.064,
+        12.892
+      ]
+    },
+    "boll_upper_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1744.732,
+        1741.574,
+        1730.722,
+        1721.683,
+        1698.994
+      ]
+    },
+    "boll_upper_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        13.239,
+        13.215,
+        13.133,
+        13.064,
+        12.892
+      ]
+    },
+    "brar_ar_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        198.21429,
+        216.17647,
+        204.87805,
+        209.13706,
+        185.35354
+      ]
+    },
+    "brar_ar_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        197.94192,
+        216.11592,
+        204.72484,
+        209.65329,
+        185.75711
+      ]
+    },
+    "brar_ar_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        197.94192,
+        216.11592,
+        204.72484,
+        209.65329,
+        185.75711
+      ]
+    },
+    "brar_br_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        147.65343,
+        160.0,
+        157.6,
+        162.76151,
+        146.4135
+      ]
+    },
+    "brar_br_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        175.89986,
+        192.94919,
+        190.77328,
+        198.96641,
+        180.23537
+      ]
+    },
+    "brar_br_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        175.89986,
+        192.94919,
+        190.77328,
+        198.96641,
+        180.23537
+      ]
+    },
+    "cci_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        52.51216,
+        99.77152,
+        122.93031,
+        166.99158,
+        132.67258
+      ]
+    },
+    "cci_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        52.51216,
+        99.77152,
+        122.93031,
+        166.99158,
+        132.67258
+      ]
+    },
+    "cci_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        52.51216,
+        99.77152,
+        122.93031,
+        166.99158,
+        132.67258
+      ]
+    },
+    "cr_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        198.10997,
+        241.90283,
+        255.41401,
+        273.25581,
+        192.42424
+      ]
+    },
+    "cr_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        198.10997,
+        241.90283,
+        255.41401,
+        273.25581,
+        252.23918
+      ]
+    },
+    "cr_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        198.10997,
+        241.90283,
+        255.41401,
+        273.25581,
+        252.23918
+      ]
+    },
+    "dfma_dif_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.8906,
+        0.884,
+        0.833,
+        0.8002,
+        0.7666
+      ]
+    },
+    "dfma_dif_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        141.22986,
+        141.23367,
+        135.39171,
+        131.94988,
+        128.40343
+      ]
+    },
+    "dfma_dif_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1.07165,
+        1.07167,
+        1.02735,
+        1.00123,
+        0.97432
+      ]
+    },
+    "dfma_difma_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.73478,
+        0.69736,
+        0.6578,
+        0.62278,
+        0.58738
+      ]
+    },
+    "dfma_difma_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        124.65531,
+        120.60655,
+        116.27648,
+        112.54448,
+        108.76185
+      ]
+    },
+    "dfma_difma_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.94588,
+        0.91516,
+        0.8823,
+        0.85398,
+        0.82528
+      ]
+    },
+    "dmi_adx_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        78.08657,
+        79.32739,
+        78.1908,
+        75.7127,
+        73.18958
+      ]
+    },
+    "dmi_adx_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        78.08657,
+        79.32739,
+        78.1908,
+        75.7127,
+        73.18958
+      ]
+    },
+    "dmi_adx_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        78.08657,
+        79.32739,
+        78.1908,
+        75.7127,
+        73.18958
+      ]
+    },
+    "dmi_adxr_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        68.55916,
+        67.77004,
+        65.27181,
+        60.84994,
+        54.75541
+      ]
+    },
+    "dmi_adxr_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        73.79617,
+        75.95592,
+        76.51944,
+        76.28503,
+        73.95506
+      ]
+    },
+    "dmi_adxr_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        73.79617,
+        75.95592,
+        76.51944,
+        76.28503,
+        73.95506
+      ]
+    },
+    "dmi_mdi_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        7.93651,
+        4.61894,
+        4.05728,
+        4.16667,
+        4.55764
+      ]
+    },
+    "dmi_mdi_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        7.93651,
+        4.61894,
+        4.05728,
+        4.16667,
+        4.55764
+      ]
+    },
+    "dmi_mdi_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        7.93651,
+        4.61894,
+        4.05728,
+        4.16667,
+        4.55764
+      ]
+    },
+    "dmi_pdi_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        37.64172,
+        39.95381,
+        42.24344,
+        46.07843,
+        41.01877
+      ]
+    },
+    "dmi_pdi_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        37.64172,
+        39.95381,
+        42.24344,
+        46.07843,
+        41.01877
+      ]
+    },
+    "dmi_pdi_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        37.64172,
+        39.95381,
+        42.24344,
+        46.07843,
+        41.01877
+      ]
+    },
+    "downdays": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    },
+    "updays": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.0,
+        1.0,
+        0.0,
+        2.0,
+        1.0
+      ]
+    },
+    "dpo_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.85,
+        1.1245,
+        1.08,
+        1.387,
+        1.091
+      ]
+    },
+    "dpo_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        126.14869,
+        164.68862,
+        161.1382,
+        203.89118,
+        167.19012
+      ]
+    },
+    "dpo_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.95721,
+        1.24965,
+        1.22271,
+        1.54712,
+        1.26863
+      ]
+    },
+    "madpo_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1.08367,
+        1.12283,
+        1.09017,
+        1.02567,
+        0.90683
+      ]
+    },
+    "madpo_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        162.75581,
+        170.22863,
+        168.22302,
+        162.02183,
+        148.66084
+      ]
+    },
+    "madpo_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1.23498,
+        1.29169,
+        1.27647,
+        1.22941,
+        1.12803
+      ]
+    },
+    "ema_bfq_10": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.72123,
+        12.71928,
+        12.66135,
+        12.60609,
+        12.47855
+      ]
+    },
+    "ema_bfq_20": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.46312,
+        12.43502,
+        12.37766,
+        12.32162,
+        12.23127
+      ]
+    },
+    "ema_bfq_250": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        11.40807,
+        11.39745,
+        11.38474,
+        11.37249,
+        11.35797
+      ]
+    },
+    "ema_bfq_30": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.26886,
+        12.23706,
+        12.18582,
+        12.13588,
+        12.06387
+      ]
+    },
+    "ema_bfq_5": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.84289,
+        12.89933,
+        12.859,
+        12.83349,
+        12.66024
+      ]
+    },
+    "ema_bfq_60": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        11.93632,
+        11.90942,
+        11.87313,
+        11.83798,
+        11.79249
+      ]
+    },
+    "ema_bfq_90": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        11.77415,
+        11.75267,
+        11.72509,
+        11.69847,
+        11.66517
+      ]
+    },
+    "ema_hfq_10": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1676.12383,
+        1675.78275,
+        1668.04433,
+        1660.63629,
+        1643.67475
+      ]
+    },
+    "ema_hfq_20": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1638.29253,
+        1634.14872,
+        1626.10062,
+        1618.17643,
+        1605.67256
+      ]
+    },
+    "ema_hfq_250": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1448.0589,
+        1446.21473,
+        1444.09111,
+        1442.02453,
+        1439.65554
+      ]
+    },
+    "ema_hfq_30": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1607.60373,
+        1602.77235,
+        1595.33558,
+        1588.02213,
+        1577.75034
+      ]
+    },
+    "ema_hfq_5": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1692.53307,
+        1699.97026,
+        1694.65257,
+        1691.28861,
+        1668.45131
+      ]
+    },
+    "ema_hfq_60": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1552.47431,
+        1548.23077,
+        1542.72654,
+        1537.34844,
+        1530.58184
+      ]
+    },
+    "ema_hfq_90": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1524.26665,
+        1520.81964,
+        1516.55479,
+        1512.4014,
+        1507.35507
+      ]
+    },
+    "ema_qfq_10": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.71835,
+        12.71577,
+        12.65705,
+        12.60083,
+        12.47213
+      ]
+    },
+    "ema_qfq_20": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.43129,
+        12.39985,
+        12.33878,
+        12.27865,
+        12.18377
+      ]
+    },
+    "ema_qfq_250": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        10.98781,
+        10.97381,
+        10.9577,
+        10.94202,
+        10.92404
+      ]
+    },
+    "ema_qfq_30": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.19843,
+        12.16177,
+        12.10534,
+        12.04984,
+        11.9719
+      ]
+    },
+    "ema_qfq_5": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.84287,
+        12.8993,
+        12.85895,
+        12.83342,
+        12.66013
+      ]
+    },
+    "ema_qfq_60": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        11.78011,
+        11.74791,
+        11.70614,
+        11.66533,
+        11.61399
+      ]
+    },
+    "ema_qfq_90": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        11.56607,
+        11.53991,
+        11.50755,
+        11.47603,
+        11.43774
+      ]
+    },
+    "emv_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.64713,
+        0.74001,
+        0.82885,
+        0.85529,
+        0.70327
+      ]
+    },
+    "emv_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.64814,
+        0.74112,
+        0.83043,
+        0.85736,
+        0.70576
+      ]
+    },
+    "emv_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.64814,
+        0.74112,
+        0.83043,
+        0.85736,
+        0.70576
+      ]
+    },
+    "maemv_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.68319,
+        0.66781,
+        0.61897,
+        0.55429,
+        0.50788
+      ]
+    },
+    "maemv_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.68529,
+        0.67028,
+        0.6456,
+        0.60503,
+        0.5827
+      ]
+    },
+    "maemv_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.68529,
+        0.67028,
+        0.6456,
+        0.60503,
+        0.5827
+      ]
+    },
+    "expma_12_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.66504,
+        12.65322,
+        12.59381,
+        12.53632,
+        12.41929
+      ]
+    },
+    "expma_12_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1668.24945,
+        1666.53868,
+        1658.5265,
+        1650.73487,
+        1635.05699
+      ]
+    },
+    "expma_12_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.6586,
+        12.64562,
+        12.58483,
+        12.5257,
+        12.40674
+      ]
+    },
+    "expma_50_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.01806,
+        11.989,
+        11.94855,
+        11.90931,
+        11.85745
+      ]
+    },
+    "expma_50_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1566.31072,
+        1561.7659,
+        1555.69081,
+        1549.74429,
+        1542.1027
+      ]
+    },
+    "expma_50_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        11.8851,
+        11.85061,
+        11.80451,
+        11.75939,
+        11.70141
+      ]
+    },
+    "kdj_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        45.16519,
+        68.67341,
+        77.12582,
+        95.78678,
+        97.37657
+      ]
+    },
+    "kdj_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        44.92957,
+        68.34263,
+        76.66363,
+        95.14446,
+        96.48955
+      ]
+    },
+    "kdj_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        44.92957,
+        68.34263,
+        76.66363,
+        95.14446,
+        96.48955
+      ]
+    },
+    "kdj_d_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        75.23441,
+        80.24595,
+        82.1747,
+        83.01618,
+        80.88775
+      ]
+    },
+    "kdj_d_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        75.3862,
+        80.46231,
+        82.48226,
+        83.45203,
+        81.50329
+      ]
+    },
+    "kdj_d_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        75.3862,
+        80.46231,
+        82.48226,
+        83.45203,
+        81.50329
+      ]
+    },
+    "kdj_k_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        65.21134,
+        76.38843,
+        80.49174,
+        87.27305,
+        86.38402
+      ]
+    },
+    "kdj_k_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        65.23399,
+        76.42242,
+        80.54271,
+        87.3495,
+        86.49871
+      ]
+    },
+    "kdj_k_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        65.23399,
+        76.42242,
+        80.54271,
+        87.3495,
+        86.49871
+      ]
+    },
+    "ktn_down_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        11.86945,
+        11.84343,
+        11.79681,
+        11.71865,
+        11.64808
+      ]
+    },
+    "ktn_down_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1560.05405,
+        1556.18302,
+        1549.55082,
+        1538.71079,
+        1528.81518
+      ]
+    },
+    "ktn_down_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        11.83762,
+        11.80825,
+        11.75792,
+        11.67567,
+        11.60058
+      ]
+    },
+    "ktn_mid_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.46545,
+        12.42743,
+        12.36681,
+        12.29665,
+        12.21208
+      ]
+    },
+    "ktn_mid_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1638.59958,
+        1633.14709,
+        1624.66987,
+        1614.88414,
+        1603.1435
+      ]
+    },
+    "ktn_mid_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.43362,
+        12.39225,
+        12.32792,
+        12.25367,
+        12.16458
+      ]
+    },
+    "ktn_upper_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        13.06145,
+        13.01143,
+        12.93681,
+        12.87465,
+        12.77608
+      ]
+    },
+    "ktn_upper_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1717.14511,
+        1710.11117,
+        1699.78892,
+        1691.05749,
+        1677.47182
+      ]
+    },
+    "ktn_upper_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        13.02962,
+        12.97625,
+        12.89792,
+        12.83167,
+        12.72858
+      ]
+    },
+    "lowdays": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        4.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    },
+    "topdays": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.0,
+        1.0,
+        0.0,
+        527.0,
+        183.0
+      ]
+    },
+    "ma_bfq_10": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.738,
+        12.695,
+        12.604,
+        12.533,
+        12.456
+      ]
+    },
+    "ma_bfq_20": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.3795,
+        12.331,
+        12.2715,
+        12.205,
+        12.13
+      ]
+    },
+    "ma_bfq_250": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        11.2498,
+        11.24012,
+        11.2298,
+        11.21956,
+        11.20744
+      ]
+    },
+    "ma_bfq_30": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.166,
+        12.13533,
+        12.088,
+        12.03967,
+        11.98467
+      ]
+    },
+    "ma_bfq_5": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.928,
+        12.92,
+        12.88,
+        12.818,
+        12.652
+      ]
+    },
+    "ma_bfq_60": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        11.71017,
+        11.68133,
+        11.6475,
+        11.6145,
+        11.57633
+      ]
+    },
+    "ma_bfq_90": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        11.589,
+        11.57544,
+        11.55911,
+        11.54378,
+        11.52644
+      ]
+    },
+    "ma_hfq_10": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1678.713,
+        1673.04612,
+        1661.05343,
+        1651.6965,
+        1641.54884
+      ]
+    },
+    "ma_hfq_20": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1631.46707,
+        1625.07536,
+        1617.23399,
+        1608.4701,
+        1598.58601
+      ]
+    },
+    "ma_hfq_250": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1435.18867,
+        1433.63506,
+        1431.99467,
+        1430.36618,
+        1428.49531
+      ]
+    },
+    "ma_hfq_30": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1593.911,
+        1588.29339,
+        1580.51267,
+        1572.61352,
+        1563.82643
+      ]
+    },
+    "ma_hfq_5": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1703.75268,
+        1702.69838,
+        1697.42686,
+        1689.25602,
+        1667.37925
+      ]
+    },
+    "ma_hfq_60": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1516.01793,
+        1511.48404,
+        1506.29454,
+        1501.2162,
+        1495.45963
+      ]
+    },
+    "ma_hfq_90": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1493.98648,
+        1491.688,
+        1489.02343,
+        1486.48977,
+        1483.68853
+      ]
+    },
+    "ma_qfq_10": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.738,
+        12.695,
+        12.604,
+        12.533,
+        12.456
+      ]
+    },
+    "ma_qfq_20": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.3795,
+        12.331,
+        12.2715,
+        12.205,
+        12.13
+      ]
+    },
+    "ma_qfq_250": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        10.89015,
+        10.87836,
+        10.86591,
+        10.85356,
+        10.83936
+      ]
+    },
+    "ma_qfq_30": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.09453,
+        12.0519,
+        11.99286,
+        11.93292,
+        11.86625
+      ]
+    },
+    "ma_qfq_5": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.928,
+        12.92,
+        12.88,
+        12.818,
+        12.652
+      ]
+    },
+    "ma_qfq_60": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        11.50348,
+        11.46907,
+        11.4297,
+        11.39116,
+        11.34748
+      ]
+    },
+    "ma_qfq_90": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        11.3363,
+        11.31886,
+        11.29864,
+        11.27942,
+        11.25816
+      ]
+    },
+    "macd_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.064,
+        0.119,
+        0.137,
+        0.161,
+        0.124
+      ]
+    },
+    "macd_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        5.127,
+        12.383,
+        14.872,
+        18.183,
+        13.456
+      ]
+    },
+    "macd_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.039,
+        0.094,
+        0.113,
+        0.138,
+        0.102
+      ]
+    },
+    "macd_dea_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.293,
+        0.285,
+        0.271,
+        0.254,
+        0.233
+      ]
+    },
+    "macd_dea_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        46.748,
+        46.107,
+        44.56,
+        42.701,
+        40.428
+      ]
+    },
+    "macd_dea_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.355,
+        0.35,
+        0.338,
+        0.324,
+        0.307
+      ]
+    },
+    "macd_dif_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.325,
+        0.345,
+        0.339,
+        0.334,
+        0.295
+      ]
+    },
+    "macd_dif_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        49.312,
+        52.299,
+        51.996,
+        51.792,
+        47.156
+      ]
+    },
+    "macd_dif_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.374,
+        0.397,
+        0.395,
+        0.393,
+        0.358
+      ]
+    },
+    "mass_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        27.55907,
+        27.56537,
+        27.59933,
+        27.65364,
+        27.82942
+      ]
+    },
+    "mass_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        27.68858,
+        27.69488,
+        27.72884,
+        27.78314,
+        27.95892
+      ]
+    },
+    "mass_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        27.68858,
+        27.69488,
+        27.72884,
+        27.78314,
+        27.95892
+      ]
+    },
+    "ma_mass_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        27.69342,
+        27.7773,
+        27.83433,
+        27.85208,
+        27.83105
+      ]
+    },
+    "ma_mass_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        27.82293,
+        27.9068,
+        27.96384,
+        27.98158,
+        27.96052
+      ]
+    },
+    "ma_mass_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        27.82293,
+        27.9068,
+        27.96384,
+        27.98158,
+        27.96052
+      ]
+    },
+    "mfi_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        62.57847,
+        70.05923,
+        77.65907,
+        88.15911,
+        87.36185
+      ]
+    },
+    "mfi_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        62.57847,
+        70.05923,
+        77.65907,
+        88.15911,
+        87.36185
+      ]
+    },
+    "mfi_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        62.57847,
+        70.05923,
+        77.65907,
+        88.15911,
+        87.36185
+      ]
+    },
+    "mtm_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.53,
+        0.57,
+        0.85,
+        1.25,
+        0.91
+      ]
+    },
+    "mtm_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        69.84753,
+        75.11905,
+        112.01963,
+        164.73475,
+        119.9269
+      ]
+    },
+    "mtm_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.53,
+        0.57,
+        0.85,
+        1.25,
+        0.91
+      ]
+    },
+    "mtmma_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.82667,
+        0.91833,
+        0.96167,
+        0.91833,
+        0.79833
+      ]
+    },
+    "mtmma_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        108.94458,
+        121.02513,
+        126.73593,
+        121.02513,
+        105.21059
+      ]
+    },
+    "mtmma_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.82667,
+        0.91833,
+        0.96167,
+        0.91833,
+        0.79833
+      ]
+    },
+    "obv_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        28434.63003,
+        28615.68316,
+        28428.39357,
+        28672.76792,
+        28424.62637
+      ]
+    },
+    "obv_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        30800.55911,
+        30981.61224,
+        30794.32265,
+        31038.697,
+        30790.55545
+      ]
+    },
+    "obv_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        30800.55911,
+        30981.61224,
+        30794.32265,
+        31038.697,
+        30790.55545
+      ]
+    },
+    "psy_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        66.667,
+        66.667,
+        66.667,
+        75.0,
+        66.667
+      ]
+    },
+    "psy_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        66.667,
+        66.667,
+        66.667,
+        75.0,
+        66.667
+      ]
+    },
+    "psy_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        66.667,
+        66.667,
+        66.667,
+        75.0,
+        66.667
+      ]
+    },
+    "psyma_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        68.056,
+        69.444,
+        69.444,
+        69.444,
+        66.667
+      ]
+    },
+    "psyma_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        68.056,
+        69.444,
+        69.444,
+        69.444,
+        66.667
+      ]
+    },
+    "psyma_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        68.056,
+        69.444,
+        69.444,
+        69.444,
+        66.667
+      ]
+    },
+    "roc_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        4.34426,
+        4.59307,
+        7.04809,
+        10.47779,
+        7.62783
+      ]
+    },
+    "roc_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        4.34426,
+        4.59307,
+        7.04809,
+        10.47779,
+        7.62783
+      ]
+    },
+    "roc_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        4.34426,
+        4.59307,
+        7.04809,
+        10.47779,
+        7.62783
+      ]
+    },
+    "maroc_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        6.87835,
+        7.69277,
+        8.10256,
+        7.76405,
+        6.76697
+      ]
+    },
+    "maroc_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        6.87835,
+        7.69277,
+        8.10256,
+        7.76405,
+        6.76697
+      ]
+    },
+    "maroc_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        6.87835,
+        7.69277,
+        8.10256,
+        7.76405,
+        6.76697
+      ]
+    },
+    "rsi_bfq_12": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        59.719,
+        68.991,
+        67.704,
+        79.349,
+        74.233
+      ]
+    },
+    "rsi_bfq_24": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        61.751,
+        67.3,
+        66.492,
+        73.176,
+        69.473
+      ]
+    },
+    "rsi_bfq_6": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        52.031,
+        67.473,
+        65.053,
+        85.501,
+        78.365
+      ]
+    },
+    "rsi_hfq_12": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        60.996,
+        70.47,
+        69.244,
+        81.158,
+        76.488
+      ]
+    },
+    "rsi_hfq_24": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        63.956,
+        69.727,
+        68.976,
+        75.942,
+        72.603
+      ]
+    },
+    "rsi_hfq_6": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        52.276,
+        67.789,
+        65.392,
+        85.942,
+        79.025
+      ]
+    },
+    "rsi_qfq_12": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        60.996,
+        70.47,
+        69.244,
+        81.158,
+        76.488
+      ]
+    },
+    "rsi_qfq_24": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        63.956,
+        69.727,
+        68.976,
+        75.942,
+        72.603
+      ]
+    },
+    "rsi_qfq_6": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        52.276,
+        67.789,
+        65.392,
+        85.942,
+        79.025
+      ]
+    },
+    "taq_down_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        11.65,
+        11.65,
+        11.53,
+        11.53,
+        11.52
+      ]
+    },
+    "taq_down_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1535.32787,
+        1535.32787,
+        1519.51333,
+        1519.51333,
+        1518.19546
+      ]
+    },
+    "taq_down_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        11.65,
+        11.65,
+        11.53,
+        11.53,
+        11.52
+      ]
+    },
+    "taq_mid_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.49,
+        12.49,
+        12.43,
+        12.43,
+        12.21
+      ]
+    },
+    "taq_mid_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1646.02962,
+        1646.02962,
+        1638.12235,
+        1638.12235,
+        1609.12904
+      ]
+    },
+    "taq_mid_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.49,
+        12.49,
+        12.43,
+        12.43,
+        12.21
+      ]
+    },
+    "taq_up_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        13.33,
+        13.33,
+        13.33,
+        13.33,
+        12.9
+      ]
+    },
+    "taq_up_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1756.73137,
+        1756.73137,
+        1756.73137,
+        1756.73137,
+        1700.06262
+      ]
+    },
+    "taq_up_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        13.33,
+        13.33,
+        13.33,
+        13.33,
+        12.9
+      ]
+    },
+    "trix_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.42049,
+        0.41467,
+        0.3952,
+        0.37049,
+        0.33881
+      ]
+    },
+    "trix_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.49237,
+        0.49318,
+        0.48053,
+        0.46279,
+        0.4381
+      ]
+    },
+    "trix_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.49237,
+        0.49318,
+        0.48053,
+        0.46279,
+        0.4381
+      ]
+    },
+    "trma_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.25815,
+        0.24667,
+        0.23587,
+        0.2264,
+        0.21864
+      ]
+    },
+    "trma_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.37339,
+        0.36184,
+        0.34961,
+        0.33735,
+        0.32556
+      ]
+    },
+    "trma_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        0.37339,
+        0.36184,
+        0.34961,
+        0.33735,
+        0.32556
+      ]
+    },
+    "vr_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        157.80091,
+        186.08815,
+        176.81143,
+        196.3479,
+        184.9826
+      ]
+    },
+    "vr_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        182.70885,
+        218.06447,
+        207.75088,
+        233.59078,
+        220.79717
+      ]
+    },
+    "vr_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        182.70885,
+        218.06447,
+        207.75088,
+        233.59078,
+        220.79717
+      ]
+    },
+    "wr_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        54.545,
+        27.559,
+        30.657,
+        10.949,
+        6.383
+      ]
+    },
+    "wr_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        54.545,
+        27.559,
+        30.657,
+        10.949,
+        6.383
+      ]
+    },
+    "wr_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        54.545,
+        27.559,
+        30.657,
+        10.949,
+        6.383
+      ]
+    },
+    "wr1_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        88.235,
+        47.945,
+        40.777,
+        14.286,
+        8.955
+      ]
+    },
+    "wr1_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        88.235,
+        47.945,
+        40.777,
+        14.286,
+        8.955
+      ]
+    },
+    "wr1_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        88.235,
+        47.945,
+        40.777,
+        14.286,
+        8.955
+      ]
+    },
+    "xsii_td1_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        13.20543,
+        13.18809,
+        13.13658,
+        13.04529,
+        12.88821
+      ]
+    },
+    "xsii_td1_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1740.31457,
+        1738.02937,
+        1731.24098,
+        1719.21007,
+        1698.50884
+      ]
+    },
+    "xsii_td1_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        13.20543,
+        13.18809,
+        13.13658,
+        13.04529,
+        12.88821
+      ]
+    },
+    "xsii_td2_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.68757,
+        12.67091,
+        12.62142,
+        12.53371,
+        12.38279
+      ]
+    },
+    "xsii_td2_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1672.06694,
+        1669.87135,
+        1663.34917,
+        1651.79007,
+        1631.90065
+      ]
+    },
+    "xsii_td2_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.68757,
+        12.67091,
+        12.62142,
+        12.53371,
+        12.38279
+      ]
+    },
+    "xsii_td3_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.93157,
+        12.90718,
+        12.8511,
+        12.79013,
+        12.68376
+      ]
+    },
+    "xsii_td3_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1696.20392,
+        1692.70534,
+        1684.84054,
+        1676.24903,
+        1661.47437
+      ]
+    },
+    "xsii_td3_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        12.87072,
+        12.84417,
+        12.7845,
+        12.7193,
+        12.60719
+      ]
+    },
+    "xsii_td4_bfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        11.23959,
+        11.21839,
+        11.16965,
+        11.11665,
+        11.0242
+      ]
+    },
+    "xsii_td4_hfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        1474.2707,
+        1471.22987,
+        1464.39412,
+        1456.92673,
+        1444.0852
+      ]
+    },
+    "xsii_td4_qfq": {
+      "coverage_percentage": 100.0,
+      "data_types": [
+        "float"
+      ],
+      "sample_values": [
+        11.1867,
+        11.16363,
+        11.11176,
+        11.0551,
+        10.95765
+      ]
+    }
+  }
+}

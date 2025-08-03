@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KK Stock Analysis - 智能股票分析系统</title>
+    
+    <!-- 预连接到外部资源 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    
+    <!-- 字体加载 -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    
+    <!-- SEO和社交媒体元标签 -->
+    <meta name="description" content="专业的股票量化分析系统" />
+    <meta name="keywords" content="股票分析,量化分析,KK Stock,投资分析" />
+    <meta name="author" content="KK Stock Team" />
+    
+    <!-- Open Graph 元标签 -->
+    <meta property="og:title" content="KK Stock Analysis" />
+    <meta property="og:description" content="专业的股票量化分析系统" />
+    <meta property="og:type" content="website" />
+    
+    <!-- 应用图标 -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    
+    <!-- 主题色 -->
+    <meta name="theme-color" content="#3b82f6" />
+    <meta name="msapplication-TileColor" content="#3b82f6" />
+    
+    <!-- 禁用用户选择和拖拽（桌面应用特有） -->
+    <style>
+      body {
+        -webkit-user-select: none;
+        -webkit-app-region: no-drag;
+        user-select: none;
+      }
+      
+      /* 允许特定元素的文本选择 */
+      input, textarea, .selectable {
+        -webkit-user-select: text;
+        user-select: text;
+      }
+      
+      /* 加载动画 */
+      .loading-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        color: white;
+        font-family: 'Inter', sans-serif;
+      }
+      
+      .loading-logo {
+        width: 64px;
+        height: 64px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 24px;
+        animation: pulse 2s infinite;
+      }
+      
+      .loading-text {
+        font-size: 24px;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+      
+      .loading-subtitle {
+        font-size: 16px;
+        opacity: 0.8;
+        margin-bottom: 32px;
+      }
+      
+      .loading-progress {
+        width: 200px;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      
+      .loading-progress-bar {
+        height: 100%;
+        background: white;
+        border-radius: 2px;
+        animation: loading 2s ease-in-out infinite;
+      }
+      
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+      }
+      
+      @keyframes loading {
+        0% { width: 0%; }
+        50% { width: 100%; }
+        100% { width: 0%; }
+      }
+      
+      /* 隐藏加载屏幕 */
+      .loading-screen.hidden {
+        opacity: 0;
+        transition: opacity 0.5s ease-out;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 应用加载屏幕 -->
+    <div id="loading-screen" class="loading-screen">
+      <div class="loading-logo">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 3V21H21V3H3ZM9 17H7V10H9V17ZM13 17H11V7H13V17ZM17 17H15V13H17V17Z" fill="white"/>
+        </svg>
+      </div>
+      <div class="loading-text">KK Stock Analysis</div>
+      <div class="loading-subtitle">正在启动智能分析系统...</div>
+      <div class="loading-progress">
+        <div class="loading-progress-bar"></div>
+      </div>
+    </div>
+    
+    <!-- Vue 应用挂载点 -->
+    <div id="app"></div>
+    
+    <!-- 应用脚本 -->
+    <script type="module" src="/src/main.ts"></script>
+    
+    <!-- 加载完成后隐藏加载屏幕 -->
+    <script>
+      // 当 Vue 应用加载完成后隐藏加载屏幕
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          const loadingScreen = document.getElementById('loading-screen');
+          if (loadingScreen) {
+            loadingScreen.classList.add('hidden');
+            setTimeout(() => {
+              loadingScreen.remove();
+            }, 500);
+          }
+        }, 1000); // 最少显示1秒加载屏幕
+      });
+      
+      // 错误处理
+      window.addEventListener('error', (event) => {
+        console.error('应用错误:', event.error);
+        // 在生产环境中，可以发送错误到监控服务
+      });
+      
+      window.addEventListener('unhandledrejection', (event) => {
+        console.error('未处理的Promise拒绝:', event.reason);
+        // 在生产环境中，可以发送错误到监控服务
+      });
+    </script>
+  </body>
+</html>
+ 

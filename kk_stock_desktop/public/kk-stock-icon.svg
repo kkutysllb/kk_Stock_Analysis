@@ -1,0 +1,46 @@
+<svg width="192" height="192" viewBox="0 0 192 192" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景渐变 -->
+  <defs>
+    <linearGradient id="bg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="chart-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00d4ff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ff1493;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- 背景圆角矩形 -->
+  <rect width="192" height="192" rx="32" fill="url(#bg-gradient)"/>
+  
+  <!-- 股票图表图标 -->
+  <g transform="translate(32, 32)">
+    <!-- K线图 -->
+    <rect x="20" y="60" width="8" height="40" fill="url(#chart-gradient)" rx="2"/>
+    <rect x="40" y="40" width="8" height="60" fill="url(#chart-gradient)" rx="2"/>
+    <rect x="60" y="50" width="8" height="50" fill="url(#chart-gradient)" rx="2"/>
+    <rect x="80" y="30" width="8" height="70" fill="url(#chart-gradient)" rx="2"/>
+    <rect x="100" y="45" width="8" height="55" fill="url(#chart-gradient)" rx="2"/>
+    
+    <!-- 趋势线 -->
+    <path d="M15 85 L25 75 L45 65 L65 55 L85 45 L105 35 L115 25" 
+          stroke="#00ff88" 
+          stroke-width="3" 
+          fill="none" 
+          stroke-linecap="round"/>
+    
+    <!-- KK字母 -->
+    <g transform="translate(10, 110)">
+      <text x="0" y="0" font-family="Inter, sans-serif" font-size="24" font-weight="700" fill="white">KK</text>
+    </g>
+    
+    <!-- 装饰元素 -->
+    <circle cx="120" cy="30" r="3" fill="#00ff88" opacity="0.8">
+      <animate attributeName="opacity" values="0.8;1;0.8" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="110" cy="40" r="2" fill="#ff1493" opacity="0.6">
+      <animate attributeName="opacity" values="0.6;1;0.6" dur="1.5s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+</svg>
