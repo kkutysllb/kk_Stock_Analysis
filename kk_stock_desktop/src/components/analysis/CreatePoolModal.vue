@@ -51,7 +51,19 @@
 
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
+import { ElMessage } from 'element-plus'
+import axios from 'axios'
 import type { FormInstance, FormRules } from 'element-plus'
+
+// 股票池接口定义
+interface StockPool {
+  id: string
+  name: string
+  description: string
+  stocks: string[]
+  createdAt: string
+  updatedAt: string
+}
 
 // Props and Emits
 const props = defineProps<{
@@ -60,13 +72,13 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  'pool-created': [pool: any]
+  'pool-created': [pool: StockPool]
 }>()
 
 // Data
 const visible = ref(false)
 const submitting = ref(false)
-const formRef = ref<FormInstance>()
+const formRef = ref<FormInstance | null>(null)
 
 const form = reactive({
   name: '',
@@ -110,22 +122,42 @@ const handleSubmit = async () => {
     await formRef.value.validate()
     submitting.value = true
     
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    const newPool = {
-      id: `pool_${Date.now()}`,
-      name: form.name,
+    // 调用后端API创建股票池
+    const response = await axios.post('/user/stock-pools/create', {
+      pool_name: form.name,
       description: form.description,
-      stocks: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      pool_type: 'custom',
+      is_default: false,
+      is_public: false,
+      is_deletable: true,
+      tags: [],
+      stocks: []
+    })
+    
+    // 后端直接返回StockPoolResponse对象
+    const newPool: StockPool = {
+      id: response.data.pool_id,
+      name: response.data.pool_name,
+      description: response.data.description,
+      stocks: response.data.stocks || [],
+      createdAt: response.data.create_time,
+      updatedAt: response.data.update_time
     }
     
     emit('pool-created', newPool)
     visible.value = false
-  } catch (error) {
+    ElMessage.success('股票池创建成功')
+  } catch (error: any) {
     console.error('创建股票池失败:', error)
+    if (error.response?.status === 400) {
+      ElMessage.error(error.response.data.message || '请求参数有误')
+    } else if (error.response?.status === 401) {
+      ElMessage.error('请先登录')
+    } else if (error.response?.status === 409) {
+      ElMessage.error('股票池名称已存在，请更换名称')
+    } else {
+      ElMessage.error('创建股票池时发生错误，请稍后重试')
+    }
   } finally {
     submitting.value = false
   }

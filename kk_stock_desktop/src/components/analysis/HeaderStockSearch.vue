@@ -101,8 +101,8 @@ const hasSearched = ref(false)
 const showResults = ref(false)
 
 // 搜索框和下拉面板的DOM引用
-const searchInputRef = ref<HTMLElement>()
-const dropdownRef = ref<HTMLElement>()
+const searchInputRef = ref<HTMLElement | null>(null)
+const dropdownRef = ref<HTMLElement | null>(null)
 
 // 搜索防抖定时器
 let searchTimer: number | null = null

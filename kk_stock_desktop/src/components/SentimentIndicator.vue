@@ -97,7 +97,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
-import { InfoFilled, TrendingUp as TrendCharts } from '@element-plus/icons-vue'
+import { InfoFilled, TrendCharts } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import { useAppStore } from '../stores/app'
 import { apiClient } from '../api/base'

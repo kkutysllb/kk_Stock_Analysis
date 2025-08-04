@@ -108,7 +108,7 @@ const timeRange = ref('30d')
 const loading = ref(false)
 
 // 图表引用
-const gaugeChart = ref<HTMLElement>()
+const gaugeChart = ref<HTMLElement | null>(null)
 let gaugeChartInstance: echarts.ECharts | null = null
 const miniChartInstances: Record<string, echarts.ECharts> = {}
 

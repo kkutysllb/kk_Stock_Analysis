@@ -138,7 +138,6 @@ declare module '@element-plus/icons-vue' {
   export const Setting: any
   export const InfoFilled: any
   export const TrendCharts: any
-  export const TrendingUp: any
   export const EllipsisHorizontalIcon: any
   export const EllipsisVerticalIcon: any
   export const Bars3Icon: any
@@ -215,6 +214,9 @@ declare module '@heroicons/vue/24/outline' {
   export const CurrencyDollarIcon: any
   export const ShieldCheckIcon: any
   export const InformationCircleIcon: any
+  export const DocumentArrowDownIcon: any
+  export const RectangleGroupIcon: any
+  export const TrendingDownIcon: any
   export const PencilIcon: any
   export const TrashIcon: any
   export const DocumentIcon: any
@@ -273,8 +275,8 @@ declare module '@heroicons/vue/24/outline' {
   export const CarIcon: any
   export const RocketLaunchIcon: any
   export const ArrowPathIcon: any
-  export const TrendingUpIcon: any
-  export const TrendingDownIcon: any
+  export const ArrowTrendingUpIcon: any
+  export const ArrowTrendingDownIcon: any
   export const CurrencyDollarIcon: any
   export const ListBulletIcon: any
   export const UserGroupIcon: any

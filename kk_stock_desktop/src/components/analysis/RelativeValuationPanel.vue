@@ -548,8 +548,8 @@ const showStockPoolDialog = ref(false)
 
 
 // 图表引用
-const comparisonChart = ref<HTMLElement>()
-const trendChart = ref<HTMLElement>()
+const comparisonChart = ref<HTMLElement | null>(null)
+const trendChart = ref<HTMLElement | null>(null)
 
 // 分析设置
 const analysisSettings = ref({

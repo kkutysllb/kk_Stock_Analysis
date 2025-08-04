@@ -178,7 +178,7 @@
                     <div class="confidence-bar">
                       <div 
                         class="confidence-fill" 
-                        :style="{ width: analysis.confidence_score + '%', backgroundColor: getConfidenceColor(analysis.confidence_score) }"
+                        :style="`width: ${analysis.confidence_score}%; background-color: ${getConfidenceColor(analysis.confidence_score)}`"
                       ></div>
                     </div>
                   </div>
@@ -269,7 +269,7 @@
                     <div class="position-bar">
                       <div 
                         class="position-fill" 
-                        :style="{ width: (analysisResult.risk_assessment?.position_suggestion ? (analysisResult.risk_assessment.position_suggestion > 1 ? analysisResult.risk_assessment.position_suggestion : analysisResult.risk_assessment.position_suggestion * 100) : 0) + '%' }"
+                        :style="`width: ${analysisResult.risk_assessment?.position_suggestion ? (analysisResult.risk_assessment.position_suggestion > 1 ? analysisResult.risk_assessment.position_suggestion : analysisResult.risk_assessment.position_suggestion * 100) : 0}%`"
                       ></div>
                     </div>
                   </div>
@@ -514,7 +514,7 @@ import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import { 
   ArrowTrendingUpIcon,
-  Cog6ToothIcon,
+  CogIcon as Cog6ToothIcon,
   PlayIcon,
   ChartBarIcon,
   ArrowDownIcon,
@@ -570,7 +570,7 @@ const dateRange = ref<[string, string]>([
 ])
 
 // 图表相关
-const dowTheoryChart = ref<HTMLElement>()
+const dowTheoryChart = ref<HTMLElement | null>(null)
 let chartInstance: echarts.ECharts | null = null
 let resizeObserver: ResizeObserver | null = null
 let resizeTimer: number | null = null
@@ -1895,7 +1895,9 @@ const initChart = async () => {
   }
   
   // 设置图表配置
-  chartInstance.setOption(option)
+  if (chartInstance) {
+    chartInstance.setOption(option)
+  }
   
   // 立即调整图表大小
   nextTick(() => {
@@ -1911,7 +1913,7 @@ const initChart = async () => {
     }
     
     resizeTimer = setTimeout(() => {
-      if (chartInstance && chartInstance.getDom()) {
+      if (chartInstance && !chartInstance.isDisposed()) {
         // 强制重新计算容器尺寸
         const container = dowTheoryChart.value
         if (container) {
@@ -1945,7 +1947,7 @@ const initChart = async () => {
     }
     
     resizeObserver = new ResizeObserver((entries) => {
-      if (chartInstance && chartInstance.getDom()) {
+      if (chartInstance && !chartInstance.isDisposed()) {
         // 检查容器是否可见
         const container = dowTheoryChart.value
         if (container && container.offsetWidth > 0 && container.offsetHeight > 0) {
@@ -2311,7 +2313,7 @@ onUnmounted(() => {
     }
     
     resizeTimer = setTimeout(() => {
-      if (chartInstance && chartInstance.getDom()) {
+      if (chartInstance && !chartInstance.isDisposed()) {
         // 强制重新计算容器尺寸
         const container = dowTheoryChart.value
         if (container) {

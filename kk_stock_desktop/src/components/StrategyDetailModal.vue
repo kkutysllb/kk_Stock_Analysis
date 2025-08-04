@@ -1001,7 +1001,7 @@ import {
   CogIcon, 
   ScaleIcon,
   ChartBarIcon,
-  TrendingUpIcon as ArrowTrendingUpIcon,
+  ArrowTrendingUpIcon,
   BoltIcon,
   CurrencyDollarIcon,
   ArrowPathIcon,

@@ -282,15 +282,15 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import {
-  PresentationChartLineIcon,
-  AdjustmentsHorizontalIcon,
+  ChartBarIcon as PresentationChartLineIcon,
+  CogIcon as AdjustmentsHorizontalIcon,
   StarIcon,
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
   ChartBarIcon,
-  TableCellsIcon,
+  RectangleGroupIcon as TableCellsIcon,
   ExclamationTriangleIcon,
-  CheckCircleIcon
+  CheckIcon as CheckCircleIcon
 } from '@heroicons/vue/24/outline'
 
 import { apiClient } from '@/api/base'
@@ -318,7 +318,7 @@ const loadingData = ref(false)
 const analysisDays = ref(30)
 const analysisResult = ref<any>(null)
 const marginData = ref<any[]>([])
-const chartContainer = ref<HTMLElement>()
+const chartContainer = ref<HTMLElement | null>(null)
 let chartInstance: echarts.ECharts | null = null
 
 // 计算属性
@@ -531,8 +531,10 @@ const createChart = () => {
     }
   }
 
-  chartInstance.setOption(option)
-  console.log('图表设置完成')
+  if (chartInstance) {
+    chartInstance.setOption(option)
+    console.log('图表设置完成')
+  }
 }
 
 const onDaysChange = () => {

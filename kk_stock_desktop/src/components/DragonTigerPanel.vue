@@ -39,7 +39,7 @@
       <div class="stats-overview">
         <div class="stat-card">
           <div class="stat-icon positive">
-            <TrendingUpIcon class="icon" />
+            <ArrowTrendingUpIcon class="icon" />
           </div>
           <div class="stat-content">
             <div class="stat-value positive">{{ summaryData.statistics.total_buy_amount.toLocaleString() }}</div>
@@ -49,7 +49,7 @@
         
         <div class="stat-card">
           <div class="stat-icon negative">
-            <TrendingUpIcon class="icon" />
+            <ArrowTrendingUpIcon class="icon" />
           </div>
           <div class="stat-content">
             <div class="stat-value negative">{{ summaryData.statistics.total_sell_amount.toLocaleString() }}</div>
@@ -212,7 +212,7 @@
                   
                   <div class="stat-card">
                     <div class="stat-icon positive">
-                      <TrendingUpIcon class="icon" />
+                      <ArrowTrendingUpIcon class="icon" />
                     </div>
                     <div class="stat-content">
                       <div class="stat-value positive">{{ formatAmount(hotMoneyData.overall_stats.total_buy_amount) }}</div>
@@ -426,7 +426,7 @@ import AskAIComponent from './AskAIComponent.vue'
 import {
   FireIcon,
   ArrowPathIcon,
-  TrendingUpIcon,
+  ArrowTrendingUpIcon,
   CurrencyDollarIcon,
   ScaleIcon,
   ListBulletIcon,
@@ -436,7 +436,7 @@ import {
   ChartBarIcon,
   InformationCircleIcon,
   UserGroupIcon,
-  TrendingDownIcon as ArrowTrendingDownIcon
+  ArrowTrendingDownIcon
 } from '@heroicons/vue/24/outline'
 
 // 响应式数据

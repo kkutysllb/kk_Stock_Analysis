@@ -11,9 +11,10 @@
       <div class="search-section">
         <el-input
           v-model="searchKeyword"
-          placeholder="输入股票代码或名称搜索"
+          placeholder="输入股票代码或名称搜索（至少2个字符）"
           @input="handleSearch"
           clearable
+          :loading="searching"
         >
           <template #prefix>
             <el-icon><Search /></el-icon>
@@ -30,12 +31,12 @@
         <div class="results-list">
           <div 
             v-for="stock in searchResults"
-            :key="stock.code"
+            :key="stock.ts_code"
             class="result-item"
             @click="addStock(stock)"
           >
             <div class="stock-info">
-              <span class="stock-code">{{ stock.code }}</span>
+              <span class="stock-code">{{ stock.ts_code }}</span>
               <span class="stock-name">{{ stock.name }}</span>
             </div>
             <el-button size="small" type="primary">添加</el-button>
@@ -52,11 +53,11 @@
         <div class="selected-list">
           <el-tag
             v-for="stock in selectedStocks"
-            :key="stock.code"
+            :key="stock.ts_code"
             closable
-            @close="removeStock(stock.code)"
+            @close="removeStock(stock.ts_code)"
           >
-            {{ stock.code }} {{ stock.name }}
+            {{ stock.ts_code }} {{ stock.name }}
           </el-tag>
         </div>
       </div>
@@ -81,6 +82,16 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
 import { Search } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import axios from 'axios'
+
+// 股票接口定义
+interface Stock {
+  ts_code: string
+  name: string
+  market?: string
+  industry?: string
+}
 
 // Props and Emits
 const props = defineProps<{
@@ -90,27 +101,18 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  'stocks-added': [poolId: string, stocks: any[]]
+  'stocks-added': [poolId: string, stocks: Stock[]]
 }>()
 
 // Data
 const visible = ref(false)
 const submitting = ref(false)
 const searchKeyword = ref('')
-const searchResults = ref<any[]>([])
-const selectedStocks = ref<any[]>([])
+const searchResults = ref<Stock[]>([])
+const selectedStocks = ref<Stock[]>([])
+const searching = ref(false)
+let searchTimer: number | null = null
 
-// Mock stock data for search
-const mockStocks = [
-  { code: '000001.SZ', name: '平安银行' },
-  { code: '000002.SZ', name: '万科A' },
-  { code: '600000.SH', name: '浦发银行' },
-  { code: '600036.SH', name: '招商银行' },
-  { code: '000858.SZ', name: '五粮液' },
-  { code: '002415.SZ', name: '海康威视' },
-  { code: '600519.SH', name: '贵州茅台' },
-  { code: '000300.SZ', name: '沪深300' }
-]
 
 // Watch
 watch(() => props.modelValue, (val) => {
@@ -132,27 +134,63 @@ const resetForm = () => {
 }
 
 const handleSearch = () => {
+  // 清除之前的定时器
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+  }
+  
   if (!searchKeyword.value) {
     searchResults.value = []
     return
   }
   
-  const keyword = searchKeyword.value.toLowerCase()
-  searchResults.value = mockStocks.filter(stock => 
-    stock.code.toLowerCase().includes(keyword) || 
-    stock.name.toLowerCase().includes(keyword)
-  ).slice(0, 10) // 限制显示10个结果
+  if (searchKeyword.value.length < 2) {
+    searchResults.value = []
+    return // 至少输入2个字符才开始搜索
+  }
+  
+  // 防抖处理，500ms后执行搜索
+  searchTimer = setTimeout(() => {
+    performSearch()
+  }, 500)
 }
 
-const addStock = (stock: any) => {
-  const exists = selectedStocks.value.find(s => s.code === stock.code)
+const performSearch = async () => {
+  try {
+    searching.value = true
+    
+    // 调用后端API搜索股票
+    const response = await axios.get('/user/stock-pools/search-stocks', {
+      params: {
+        keyword: searchKeyword.value,
+        limit: 10
+      }
+    })
+    
+    if (response.data.success) {
+      searchResults.value = response.data.data || []
+    } else {
+      searchResults.value = []
+      ElMessage.warning(response.data.message || '搜索失败')
+    }
+  } catch (error: any) {
+    console.error('股票搜索失败:', error)
+    searchResults.value = []
+    ElMessage.error('搜索股票时发生错误，请稍后重试')
+  } finally {
+    searching.value = false
+  }
+}
+
+const addStock = (stock: Stock) => {
+  const exists = selectedStocks.value.find((s: Stock) => s.ts_code === stock.ts_code)
   if (!exists) {
     selectedStocks.value.push(stock)
   }
 }
 
 const removeStock = (stockCode: string) => {
-  const index = selectedStocks.value.findIndex(s => s.code === stockCode)
+  const index = selectedStocks.value.findIndex((s: Stock) => s.ts_code === stockCode)
   if (index >= 0) {
     selectedStocks.value.splice(index, 1)
   }

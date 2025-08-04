@@ -129,7 +129,7 @@ const emit = defineEmits<{
 
 // Data
 const visible = ref(false)
-const formRef = ref<FormInstance>()
+const formRef = ref<FormInstance | null>(null)
 
 const form = reactive({
   includeVolume: true,
