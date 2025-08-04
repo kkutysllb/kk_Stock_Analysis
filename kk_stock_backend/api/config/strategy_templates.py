@@ -187,23 +187,20 @@ class StrategyTemplateConfig:
             "id": "fund_flow",
             "name": "资金追踪策略",
             "strategy_type": "fund_flow",
-            "description": "综合筹码分析、资金流向和行业轮动，追踪主力资金关注的优质标的",
+            "description": "基于融资融券数据追踪主力资金动向，筛选具有融资买入趋势和余额增长的优质股票",
             "conditions": {
                 "special": {
-                    "large_order_inflow_positive": True,
-                    "super_large_inflow_positive": True,
-                    "fund_continuity_min": 60,
-                    "institutional_ratio_min": 30,
-                    "industry_rank_max": 20,
-                    "fund_tracking_score_min": 70
+                    "margin_buy_trend_min": 50,
+                    "margin_balance_growth_min": 50,
+                    "fund_tracking_score_min": 60
                 }
             },
             "weights": {
-                "technical": 0.2,
-                "fundamental": 0.3,
+                "technical": 0.3,
+                "fundamental": 0.2,
                 "special": 0.5
             },
-            "tags": ["资金追踪", "主力资金", "中线"],
+            "tags": ["资金追踪", "融资融券", "主力资金"],
             "is_system": True
         }
     }

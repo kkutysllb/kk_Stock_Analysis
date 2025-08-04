@@ -802,135 +802,34 @@
           <template v-else-if="strategyTemplate?.strategy_type === 'fund_flow'">
             <el-row :gutter="20">
               <!-- 融资交易参数 -->
-              <el-col :span="12">
-                <h4 class="param-group-title">🎯 融资交易参数</h4>
-                <el-form-item label="融资买入趋势下限:">
-                  <el-input-number 
-                    v-model="parameters.margin_buy_trend_min" 
-                    :min="0" 
-                    :max="100" 
-                    :step="5"
-                    controls-position="right"
-                  />
-                  <span class="param-hint">融资买入趋势 ≥ {{ parameters.margin_buy_trend_min }}%</span>
-                </el-form-item>
-                <el-form-item label="融资余额增长下限:">
-                  <el-input-number 
-                    v-model="parameters.margin_balance_growth_min" 
-                    :min="0" 
-                    :max="100" 
-                    :step="5"
-                    controls-position="right"
-                  />
-                  <span class="param-hint">融资余额增长 ≥ {{ parameters.margin_balance_growth_min }}%</span>
-                </el-form-item>
-                <el-form-item label="两融活跃度下限:">
-                  <el-input-number 
-                    v-model="parameters.margin_activity_min" 
-                    :min="0" 
-                    :max="100" 
-                    :step="5"
-                    controls-position="right"
-                  />
-                  <span class="param-hint">两融活跃度 ≥ {{ parameters.margin_activity_min }}%</span>
-                </el-form-item>
-                <el-form-item label="融券趋势下限:">
-                  <el-input-number 
-                    v-model="parameters.short_sell_trend_min" 
-                    :min="0" 
-                    :max="100" 
-                    :step="5"
-                    controls-position="right"
-                  />
-                  <span class="param-hint">融券趋势 ≥ {{ parameters.short_sell_trend_min }}%</span>
-                </el-form-item>
-              </el-col>
-
-              <!-- 资金流向参数 -->
-              <el-col :span="12">
-                <h4 class="param-group-title">💰 资金流向参数</h4>
-                <el-form-item label="大单净流入下限:">
-                  <el-input-number 
-                    v-model="parameters.large_order_inflow_min" 
-                    :min="-10000" 
-                    :max="50000" 
-                    :step="1000"
-                    controls-position="right"
-                  />
-                  <span class="param-hint">大单净流入 ≥ {{ parameters.large_order_inflow_min }}万元</span>
-                </el-form-item>
-                <el-form-item label="超大单净流入下限:">
-                  <el-input-number 
-                    v-model="parameters.super_large_inflow_min" 
-                    :min="-10000" 
-                    :max="50000" 
-                    :step="1000"
-                    controls-position="right"
-                  />
-                  <span class="param-hint">超大单净流入 ≥ {{ parameters.super_large_inflow_min }}万元</span>
-                </el-form-item>
-                <el-form-item label="资金连续性下限:">
-                  <el-input-number 
-                    v-model="parameters.fund_continuity_min" 
-                    :min="0" 
-                    :max="100" 
-                    :step="5"
-                    controls-position="right"
-                  />
-                  <span class="param-hint">资金流入连续性 ≥ {{ parameters.fund_continuity_min }}%</span>
-                </el-form-item>
-              </el-col>
-            </el-row>
-
-            <el-row :gutter="20">
-              <!-- 机构参与参数 -->
-              <el-col :span="12">
-                <h4 class="param-group-title">🏛️ 机构参与参数</h4>
-                <el-form-item label="机构资金占比下限:">
-                  <el-input-number 
-                    v-model="parameters.institutional_ratio_min" 
-                    :min="0" 
-                    :max="100" 
-                    :step="5"
-                    controls-position="right"
-                  />
-                  <span class="param-hint">机构资金占比 ≥ {{ parameters.institutional_ratio_min }}%</span>
-                </el-form-item>
-                <el-form-item label="行业资金排名上限:">
-                  <el-input-number 
-                    v-model="parameters.industry_rank_max" 
-                    :min="1" 
-                    :max="100" 
-                    :step="5"
-                    controls-position="right"
-                  />
-                  <span class="param-hint">行业资金排名 ≤ {{ parameters.industry_rank_max }}</span>
-                </el-form-item>
-                <el-form-item label="行业资金强度下限:">
-                  <el-input-number 
-                    v-model="parameters.industry_strength_min" 
-                    :min="0" 
-                    :max="100" 
-                    :step="5"
-                    controls-position="right"
-                  />
-                  <span class="param-hint">行业资金强度 ≥ {{ parameters.industry_strength_min }}%</span>
-                </el-form-item>
-              </el-col>
-
-              <!-- 综合评分参数 -->
-              <el-col :span="12">
-                <h4 class="param-group-title">📊 综合评分参数</h4>
-                <el-form-item label="追踪评分下限:">
-                  <el-input-number 
-                    v-model="parameters.fund_tracking_score_min" 
-                    :min="0" 
-                    :max="100" 
-                    :step="5"
-                    controls-position="right"
-                  />
-                  <span class="param-hint">资金追踪评分 ≥ {{ parameters.fund_tracking_score_min }}分</span>
-                </el-form-item>
+              <el-col :span="24">
+                <h4 class="param-group-title">🎯 融资交易核心参数</h4>
+                <el-row :gutter="20">
+                  <el-col :span="12">
+                    <el-form-item label="融资买入趋势下限:">
+                      <el-input-number 
+                        v-model="parameters.margin_buy_trend_min" 
+                        :min="0" 
+                        :max="100" 
+                        :step="5"
+                        controls-position="right"
+                      />
+                      <span class="param-hint">融资买入趋势 ≥ {{ parameters.margin_buy_trend_min }}%</span>
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="12">
+                    <el-form-item label="融资余额增长下限:">
+                      <el-input-number 
+                        v-model="parameters.margin_balance_growth_min" 
+                        :min="0" 
+                        :max="100" 
+                        :step="5"
+                        controls-position="right"
+                      />
+                      <span class="param-hint">融资余额增长 ≥ {{ parameters.margin_balance_growth_min }}%</span>
+                    </el-form-item>
+                  </el-col>
+                </el-row>
               </el-col>
             </el-row>
 
@@ -938,15 +837,13 @@
               <!-- 策略说明 -->
               <el-col :span="24">
                 <div class="strategy-note">
-                  <h4>👁️ 资金趋势跟踪策略说明</h4>
-                  <p>基于<strong>两融数据、资金流向和行业轮动</strong>的多维度资金趋势跟踪：</p>
+                  <h4>📊 简化资金追踪策略说明</h4>
+                  <p>基于<strong>融资融券核心数据</strong>的双指标资金追踪策略：</p>
                   <ul>
-                    <li><strong>融资交易分析</strong>：融资买入趋势≥{{ parameters.margin_buy_trend_min }}%，融资余额增长≥{{ parameters.margin_balance_growth_min }}%，两融活跃度≥{{ parameters.margin_activity_min }}%</li>
-                    <li><strong>资金流向监控</strong>：大单净流入≥{{ parameters.large_order_inflow_min }}万元，超大单净流入≥{{ parameters.super_large_inflow_min }}万元，连续性≥{{ parameters.fund_continuity_min }}%</li>
-                    <li><strong>机构参与度</strong>：机构资金占比≥{{ parameters.institutional_ratio_min }}%，行业排名≤{{ parameters.industry_rank_max }}，"聪明钱"持续关注</li>
-                    <li><strong>行业资金配置</strong>：行业资金强度≥{{ parameters.industry_strength_min }}%，捕捉行业轮动机会</li>
-                    <li><strong>综合评分</strong>：多维度加权评分，≥{{ parameters.fund_tracking_score_min }}分为强趋势信号</li>
-                    <li><strong>策略核心</strong>：通过真实两融数据和资金流向，识别主力资金关注的投资标的</li>
+                    <li><strong>融资买入趋势</strong>：监控融资买入趋势≥{{ parameters.margin_buy_trend_min }}%，识别主力资金积极布局的股票</li>
+                    <li><strong>融资余额增长</strong>：跟踪融资余额增长≥{{ parameters.margin_balance_growth_min }}%，发现资金持续流入的标的</li>
+                    <li><strong>双核心筛选</strong>：只选择同时满足两个核心指标的股票，提高选股精度</li>
+                    <li><strong>策略优势</strong>：简洁高效，聚焦最可靠的资金信号，避免过度复杂的筛选条件</li>
                   </ul>
                 </div>
               </el-col>
@@ -1252,36 +1149,26 @@ const strategyConfigs: Record<string, any> = {
     ]
   },
   'fund_flow': {
-    philosophy: '资金趋势跟踪策略：基于真实两融数据、资金流向和行业轮动的多维度资金趋势跟踪策略。通过深度分析融资买入趋势、融资余额增长、两融活跃度、大单资金流入、机构参与度和行业资金配置，识别主力资金关注的优质投资标的。利用真实的两融交易数据，追踪"聪明钱"的足迹，发现市场先知先觉的投资机会。',
+    philosophy: '简化资金追踪策略：基于融资融券核心数据追踪主力资金动向。专注于两个核心指标：融资买入趋势和融资余额增长，通过这两个最具代表性的资金流向指标，识别主力资金真正关注的优质投资标的。策略简洁高效，避免过度复杂的筛选条件，聚焦于最可靠的资金信号。',
     principles: [
       {
         title: '融资买入趋势分析',
-        description: '融资买入趋势≥50%，主力资金通过融资积极布局',
+        description: '监控融资买入趋势，识别主力资金通过融资积极布局的股票',
         icon: ArrowTrendingUpIcon
       },
       {
-        title: '融资余额增长监控',  
-        description: '融资余额增长≥50%，资金持续流入，市场信心增强',
+        title: '融资余额增长跟踪',  
+        description: '跟踪融资余额增长情况，发现资金持续流入、市场信心增强的标的',
         icon: CurrencyDollarIcon
       },
       {
-        title: '两融活跃度评估',
-        description: '两融活跃度≥30%，交易活跃，资金关注度高',
+        title: '双核心指标交集',
+        description: '只选择同时满足融资买入趋势和余额增长的股票，提高选股精度',
         icon: FireIcon
       },
       {
-        title: '大单资金流入',
-        description: '大单和超大单持续净流入，机构资金积极布局',
-        icon: EyeIcon
-      },
-      {
-        title: '行业资金轮动',
-        description: '行业资金排名靠前，捕捉行业轮动机会',
-        icon: ChartBarIcon
-      },
-      {
-        title: '综合趋势评分',
-        description: '多维度评分系统，>20分为强资金趋势信号',
+        title: '简化评分机制',
+        description: '采用简化的60分基础评分，避免复杂计算，保证执行效率',
         icon: ScaleIcon
       }
     ]
@@ -1383,16 +1270,7 @@ const defaultParameters: Record<string, any> = {
   },
   'fund_flow': {
     margin_buy_trend_min: 50,         // 融资买入趋势下限(%)
-    margin_balance_growth_min: 50,    // 融资余额增长下限(%)
-    margin_activity_min: 30,          // 两融活跃度下限(%)
-    short_sell_trend_min: 50,         // 融券趋势下限(%)
-    large_order_inflow_min: 0,        // 大单净流入下限(万元)
-    super_large_inflow_min: 0,        // 超大单净流入下限(万元)
-    fund_continuity_min: 40,          // 资金流入连续性下限(%)
-    institutional_ratio_min: 20,      // 机构资金占比下限(%)
-    industry_rank_max: 50,            // 行业资金排名上限
-    industry_strength_min: 0,         // 行业资金强度下限(%)
-    fund_tracking_score_min: 20       // 资金追踪综合评分下限
+    margin_balance_growth_min: 50     // 融资余额增长下限(%)
   }
 }
 
@@ -1451,10 +1329,8 @@ const defaultWeights: Record<string, any[]> = {
     { key: 'turnover_weight', label: '换手率权重', value: 10 }
   ],
   'fund_flow': [
-    { key: 'margin_trading_weight', label: '融资交易权重', value: 30 },
-    { key: 'fund_flow_weight', label: '资金流向权重', value: 30 },
-    { key: 'institutional_weight', label: '机构参与权重', value: 25 },
-    { key: 'industry_rotation_weight', label: '行业轮动权重', value: 15 }
+    { key: 'margin_buy_trend_weight', label: '融资买入趋势权重', value: 50 },
+    { key: 'margin_balance_growth_weight', label: '融资余额增长权重', value: 50 }
   ]
 }
 

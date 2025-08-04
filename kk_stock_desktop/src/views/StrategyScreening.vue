@@ -511,10 +511,7 @@ const strategyColumnConfig: Record<string, Array<{
     { prop: 'close', label: '最新价', minWidth: 80, sortable: true, type: 'price' },
     { prop: 'pct_chg', label: '涨跌幅', minWidth: 80, sortable: true, type: 'change' },
     { prop: 'margin_buy_trend', label: '融资买入趋势%', minWidth: 120, sortable: true, type: 'percentage' },
-    { prop: 'margin_activity_score', label: '两融活跃度%', minWidth: 110, sortable: true, type: 'percentage' },
-    { prop: 'large_order_net_inflow', label: '大单净流入', minWidth: 110, sortable: true, type: 'fund_amount' },
-    { prop: 'institutional_fund_ratio', label: '机构资金%', minWidth: 100, sortable: true, type: 'percentage' },
-    { prop: 'industry_fund_rank', label: '行业排名', minWidth: 90, sortable: true, type: 'rank' },
+    { prop: 'margin_balance_growth', label: '融资余额增长%', minWidth: 120, sortable: true, type: 'percentage' },
     { prop: 'fund_tracking_score', label: '追踪评分', minWidth: 100, sortable: true, type: 'score' },
     { prop: 'total_mv', label: '总市值', minWidth: 100, sortable: true, type: 'market_cap' }
   ]
@@ -779,22 +776,13 @@ const startScreening = async () => {
       // console.log('使用资金追踪策略直接API调用')
       const { fundFlowTrackingScreening } = await import('@/api/strategy')
       
-      // 构建资金追踪策略参数
+      // 构建资金追踪策略参数（简化版）
       const fundFlowParams = {
         market_cap: 'all',
-        stock_pool: 'all',
+        stock_pool: 'all', 
         limit: 20,
         margin_buy_trend_min: customSettings?.parameters?.margin_buy_trend_min || 50,
-        margin_balance_growth_min: customSettings?.parameters?.margin_balance_growth_min || 50,
-        margin_activity_min: customSettings?.parameters?.margin_activity_min || 30,
-        short_sell_trend_min: customSettings?.parameters?.short_sell_trend_min || 50,
-        large_order_inflow_min: customSettings?.parameters?.large_order_inflow_min || 0,
-        super_large_inflow_min: customSettings?.parameters?.super_large_inflow_min || 0,
-        fund_continuity_min: customSettings?.parameters?.fund_continuity_min || 40,
-        institutional_ratio_min: customSettings?.parameters?.institutional_ratio_min || 20,
-        industry_rank_max: customSettings?.parameters?.industry_rank_max || 50,
-        industry_strength_min: customSettings?.parameters?.industry_strength_min || 0,
-        fund_tracking_score_min: customSettings?.parameters?.fund_tracking_score_min || 20
+        margin_balance_growth_min: customSettings?.parameters?.margin_balance_growth_min || 50
       }
       
       // console.log('资金追踪策略参数:', fundFlowParams)
@@ -846,7 +834,7 @@ const getStrategyBrief = (strategyType: string): string => {
     'technical': '基于技术指标分析，识别买卖时机',
     'oversold': '基于多维度超跌识别和反弹确认，寻找深度调整后的反弹机会',
     'limit_up': '基于真实涨跌停数据的连板龙头选股，识别强势板块龙头机会',
-    'fund_flow': '基于两融数据、大单资金流向和行业轮动分析，追踪主力资金关注的优质标的'
+    'fund_flow': '基于融资融券核心数据追踪主力资金动向，聚焦融资买入趋势和余额增长双核心指标'
   }
   return briefMap[strategyType] || '智能选股策略'
 }

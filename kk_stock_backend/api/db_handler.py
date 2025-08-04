@@ -104,12 +104,12 @@ class DBHandler:
             self.logger.info(f"🏠 Worker{worker_id}: 连接本地数据库...")
             self.local_client = MongoClient(
                 LOCAL_MONGO_URI,
-                serverSelectionTimeoutMS=3000,   # 3秒选择超时
-                connectTimeoutMS=3000,            # 3秒连接超时  
-                socketTimeoutMS=10000,            # 10秒socket超时
+                serverSelectionTimeoutMS=5000,   # 5秒选择超时
+                connectTimeoutMS=5000,            # 5秒连接超时  
+                socketTimeoutMS=None,             # 无socket超时限制
                 maxPoolSize=3,                    # 最小连接池，每个worker只要1个连接
                 minPoolSize=1,                    # 最小连接池为1
-                maxIdleTimeMS=30000,              # 30秒空闲超时
+                maxIdleTimeMS=60000,              # 60秒空闲超时
                 maxConnecting=1,                  # 限制同时连接数为1
                 retryWrites=True,
                 w=1,

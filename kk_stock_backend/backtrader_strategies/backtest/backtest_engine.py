@@ -634,6 +634,11 @@ def run_strategy_backtest(strategy: StrategyInterface,
         def update_realtime_callback(current_date: str, portfolio_data: Dict[str, Any], trades_data: List[Dict]):
             """回测过程中的实时数据更新回调"""
             try:
+                # 首先检查任务是否存在
+                if task_id not in active_tasks:
+                    logging.error(f"   ❌ 任务ID {task_id} 不在 active_tasks 中！")
+                    return
+                
                 # 构建实时数据更新
                 update_data = {
                     'current_date': current_date,
@@ -689,11 +694,8 @@ def run_strategy_backtest(strategy: StrategyInterface,
                 logging.info(f"   📋 持仓数: {len(portfolio_data.get('positions', []))}")
                 
                 # 确认数据已写入active_tasks
-                if task_id in active_tasks:
-                    series_len = len(active_tasks[task_id].get('date_series', []))
-                    logging.info(f"   ✅ 时序数据长度: {series_len}")
-                else:
-                    logging.error(f"   ❌ 任务ID {task_id} 不在 active_tasks 中！")
+                series_len = len(active_tasks[task_id].get('date_series', []))
+                logging.info(f"   ✅ 时序数据长度: {series_len}")
                 
             except Exception as e:
                 logging.error(f"更新实时数据失败: {e}")

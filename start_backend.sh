@@ -548,7 +548,7 @@ elif [ "$1" = "list-logs" ]; then
     exit 0
 elif [ "$1" = "status" ]; then
     # 初始化基本配置
-    PROJECT_DIR="/home/libing/kk_Projects/kk_stock/kk_stock_backend"
+    PROJECT_DIR="$PROJECT_DIR"
     PID_FILE="$PROJECT_DIR/kk_stock_backend.pid"
     API_HOST="${API_HOST:-$DEFAULT_HOST}"
     API_PORT="${API_PORT:-$DEFAULT_PORT}"
@@ -558,7 +558,7 @@ elif [ "$1" = "status" ]; then
     exit 0
 elif [ "$1" = "stop" ]; then
     # 初始化基本配置
-    PROJECT_DIR="/home/libing/kk_Projects/kk_stock/kk_stock_backend"
+    PROJECT_DIR="$PROJECT_DIR"
     PID_FILE="$PROJECT_DIR/kk_stock_backend.pid"
     LOG_DIR="$PROJECT_DIR/logs"
     STARTUP_LOG_FILE="$LOG_DIR/startup_$(date +%Y%m%d_%H%M%S).log"
@@ -567,7 +567,7 @@ elif [ "$1" = "stop" ]; then
     exit 0
 elif [ "$1" = "restart" ]; then
     # 初始化基本配置
-    PROJECT_DIR="/home/libing/kk_Projects/kk_stock/kk_stock_backend"
+    PROJECT_DIR="$PROJECT_DIR"
     PID_FILE="$PROJECT_DIR/kk_stock_backend.pid"
     LOG_DIR="$PROJECT_DIR/logs"
     STARTUP_LOG_FILE="$LOG_DIR/startup_$(date +%Y%m%d_%H%M%S).log"

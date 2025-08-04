@@ -8,7 +8,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 
 from api.routers.user import get_current_user, require_roles
@@ -26,6 +26,14 @@ from api.global_db import db_handler
 logger = logging.getLogger(__name__)
 
 screening_engine = StrategyScreeningEngine()
+
+# 资金追踪策略参数模型
+class FundFlowTrackingParams(BaseModel):
+    market_cap: str = "all"
+    stock_pool: str = "all"
+    limit: int = 20
+    margin_buy_trend_min: float = 50
+    margin_balance_growth_min: float = 50
 
 # 创建路由器
 router = APIRouter(tags=["策略选股"])
@@ -3534,86 +3542,33 @@ async def limit_up_leader_screening(
 @router.post("/fund-flow-tracking")
 @cache_endpoint(data_type="fund_flow_tracking", ttl=300)
 async def fund_flow_tracking_screening(
-    market_cap: str = "all",
-    stock_pool: str = "all",
-    limit: int = 20,
-    margin_buy_trend_min: float = 50,
-    margin_balance_growth_min: float = 50,
-    margin_activity_min: float = 30,
-    short_sell_trend_min: float = 50,
-    large_order_inflow_min: float = 0,
-    super_large_inflow_min: float = 0,
-    fund_continuity_min: float = 40,
-    institutional_ratio_min: float = 20,
-    industry_rank_max: int = 50,
-    industry_strength_min: float = 0,
-    fund_tracking_score_min: float = 20,
+    params: FundFlowTrackingParams,
     current_user: dict = Depends(get_current_user)
 ):
-    """资金追踪策略专门接口 - 使用新的资金追踪分析器"""
+    """资金追踪策略专门接口 - 使用优化的交集查询算法"""
+    logger.info("🔥 fund_flow_tracking_screening 接口被调用!")
+    logger.info(f"参数: {params}")
     try:
-        # 获取股票池 - 使用与通用接口一致的方法
-        if stock_pool == "all":
-            stock_codes = await _resolve_stock_pool(["all"])  # 获取全部股票代码
-        else:
-            stock_codes = await _resolve_stock_pool([stock_pool])
+        # 使用优化的资金追踪筛选逻辑 - 交集查询
+        results = await _optimized_fund_flow_screening(params)
         
-        # 构建特色条件 - 使用新的资金追踪参数
-        special_conditions = {
-            "margin_buy_trend_min": margin_buy_trend_min,
-            "margin_balance_growth_min": margin_balance_growth_min,
-            "margin_activity_min": margin_activity_min,
-            "short_sell_trend_min": short_sell_trend_min,
-            "large_order_inflow_min": large_order_inflow_min,
-            "super_large_inflow_min": super_large_inflow_min,
-            "fund_continuity_min": fund_continuity_min,
-            "institutional_ratio_min": institutional_ratio_min,
-            "industry_rank_max": industry_rank_max,
-            "industry_strength_min": industry_strength_min,
-            "fund_tracking_score_min": fund_tracking_score_min
-        }
-        
-        # 使用策略筛选引擎进行筛选
-        results = await screening_engine.comprehensive_screening(
-            stock_pool=stock_codes,
-            technical_conditions=None,
-            fundamental_conditions=None,
-            special_conditions=special_conditions,
-            strategy_type="fund_flow",
-            limit=limit
-        )
-        
-        # 格式化结果
+        # 格式化结果 - 直接使用优化后的简化结果
         formatted_results = []
         for r in results:
-            special_data = r.get('special', {}) if r.get('special') else {}
-            technical_data = r.get('technical', {}) if r.get('technical') else {}
-            fund_flow_data = r.get('fund_flow', {})
-            
             result = ScreeningResult(
                 ts_code=r['ts_code'],
                 name=r.get('name', ''),
                 industry=r.get('industry'),
-                close=special_data.get('close') or technical_data.get('close'),
-                pe=technical_data.get('pe'),
-                pb=technical_data.get('pb'),
-                pct_chg=technical_data.get('pct_chg'),
-                total_mv=technical_data.get('total_mv'),
+                close=r.get('close'),
+                pe=None,  # 暂不提供
+                pb=None,  # 暂不提供  
+                pct_chg=r.get('pct_chg'),
+                total_mv=r.get('total_mv'),
                 score=round(r.get('score', 0), 2),
-                # 资金追踪专用字段 - 基于两融和资金流数据
-                margin_buy_trend=special_data.get('margin_buy_trend') if special_data else None,
-                margin_balance_growth=special_data.get('margin_balance_growth') if special_data else None,
-                margin_activity_score=special_data.get('margin_activity_score') if special_data else None,
-                short_sell_trend=special_data.get('short_sell_trend') if special_data else None,
-                large_order_net_inflow=special_data.get('large_order_net_inflow') if special_data else None,
-                super_large_net_inflow=special_data.get('super_large_net_inflow') if special_data else None,
-                fund_flow_continuity=special_data.get('fund_flow_continuity') if special_data else None,
-                institutional_fund_ratio=special_data.get('institutional_fund_ratio') if special_data else None,
-                industry_fund_rank=special_data.get('industry_fund_rank') if special_data else None,
-                industry_fund_strength=special_data.get('industry_fund_strength') if special_data else None,
-                sector_rotation_score=special_data.get('sector_rotation_score') if special_data else None,
-                fund_tracking_score=special_data.get('fund_tracking_score') if special_data else None,
-                fund_flow=fund_flow_data
+                # 资金追踪核心字段
+                margin_buy_trend=r.get('margin_buy_trend'),
+                margin_balance_growth=r.get('margin_balance_growth'),
+                fund_tracking_score=r.get('fund_tracking_score')
             )
             formatted_results.append(result)
         
@@ -3627,6 +3582,212 @@ async def fund_flow_tracking_screening(
     except Exception as e:
         logger.error(f"资金追踪策略筛选失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"资金追踪策略筛选失败: {str(e)}")
+
+async def _optimized_fund_flow_screening(params: FundFlowTrackingParams) -> List[Dict[str, Any]]:
+    """优化的资金追踪筛选 - 使用交集查询"""
+    try:
+        # 步骤1: 并行查询各个条件的TOP股票
+        logger.info("🔍 开始并行查询各资金条件...")
+        
+        # 1.1 融资买入趋势TOP500
+        margin_buy_candidates = await _query_margin_buy_top_stocks(params.margin_buy_trend_min, 500)
+        logger.info(f"融资买入趋势候选: {len(margin_buy_candidates)}只")
+        
+        # 1.2 融资余额增长TOP500  
+        margin_balance_candidates = await _query_margin_balance_growth_stocks(params.margin_balance_growth_min, 500)
+        logger.info(f"融资余额增长候选: {len(margin_balance_candidates)}只")
+        
+        # 步骤2: 求交集 (只使用融资买入趋势和融资余额增长两个条件)
+        logger.info("🔄 计算候选股票交集...")
+        intersection_stocks = set(margin_buy_candidates)
+        intersection_stocks &= set(margin_balance_candidates)
+        
+        logger.info(f"交集结果: {len(intersection_stocks)}只股票")
+        
+        if not intersection_stocks:
+            return []
+            
+        # 步骤3: 计算最终评分并排序（跳过行业筛选）
+        logger.info("📊 计算综合评分...")
+        scored_results = await _calculate_final_scores(list(intersection_stocks), params)
+        
+        # 返回TOP N结果
+        return sorted(scored_results, key=lambda x: x.get('score', 0), reverse=True)[:params.limit]
+        
+    except Exception as e:
+        logger.error(f"优化资金追踪筛选失败: {str(e)}")
+        return []
+
+async def _query_margin_buy_top_stocks(min_trend: float, limit: int = 500) -> List[str]:
+    """查询融资买入趋势TOP股票"""
+    try:
+        # 获取最近交易日
+        recent_date = (datetime.now() - timedelta(days=7)).strftime('%Y%m%d')
+        
+        # 聚合查询：计算每只股票的融资买入趋势
+        pipeline = [
+            {"$match": {"trade_date": {"$gte": recent_date}}},
+            {"$group": {
+                "_id": "$ts_code",
+                "recent_buy": {"$avg": {"$toDouble": "$rzmre"}},
+                "total_records": {"$sum": 1}
+            }},
+            {"$match": {"total_records": {"$gte": 3}}},  # 至少3条记录
+            {"$sort": {"recent_buy": -1}},
+            {"$limit": limit}
+        ]
+        
+        result = list(db_handler.get_collection('margin_detail').aggregate(pipeline))
+        return [doc['_id'] for doc in result if doc.get('recent_buy', 0) >= min_trend]
+        
+    except Exception as e:
+        logger.error(f"查询融资买入TOP股票失败: {str(e)}")
+        return []
+
+async def _query_margin_balance_growth_stocks(min_growth: float, limit: int = 500) -> List[str]:
+    """查询融资余额增长TOP股票"""
+    try:
+        recent_date = (datetime.now() - timedelta(days=10)).strftime('%Y%m%d')
+        
+        pipeline = [
+            {"$match": {"trade_date": {"$gte": recent_date}}},
+            {"$group": {
+                "_id": "$ts_code",
+                "avg_balance": {"$avg": {"$toDouble": "$rzye"}},
+                "max_balance": {"$max": {"$toDouble": "$rzye"}},
+                "min_balance": {"$min": {"$toDouble": "$rzye"}},
+                "total_records": {"$sum": 1}
+            }},
+            {"$match": {"total_records": {"$gte": 5}}},
+            {"$addFields": {
+                "growth_rate": {
+                    "$multiply": [
+                        {"$divide": [
+                            {"$subtract": ["$max_balance", "$min_balance"]},
+                            "$min_balance"
+                        ]},
+                        100
+                    ]
+                }
+            }},
+            {"$match": {"growth_rate": {"$gte": min_growth}}},
+            {"$sort": {"growth_rate": -1}},
+            {"$limit": limit}
+        ]
+        
+        result = list(db_handler.get_collection('margin_detail').aggregate(pipeline))
+        return [doc['_id'] for doc in result]
+        
+    except Exception as e:
+        logger.error(f"查询融资余额增长股票失败: {str(e)}")
+        return []
+
+
+async def _calculate_final_scores(stock_codes: List[str], params: FundFlowTrackingParams) -> List[Dict[str, Any]]:
+    """计算最终综合评分并获取完整数据"""
+    results = []
+    
+    for ts_code in stock_codes:
+        try:
+            # 获取基本信息
+            stock_info = db_handler.get_collection('infrastructure_stock_basic').find_one(
+                {"ts_code": ts_code},
+                {"name": 1, "industry": 1, "_id": 0}
+            )
+            
+            if not stock_info:
+                continue
+            
+            # 获取最新价格数据 - 只查询必要字段
+            price_data = db_handler.get_collection('stock_factor_pro').find_one(
+                {"ts_code": ts_code},
+                {"close": 1, "pct_chg": 1, "total_mv": 1, "_id": 0},
+                sort=[("trade_date", -1)]
+            )
+            
+            # 获取融资融券数据（最近7天）
+            margin_cursor = db_handler.get_collection('margin_detail').find(
+                {"ts_code": ts_code},
+                {"rzmre": 1, "rzye": 1, "trade_date": 1, "_id": 0}
+            ).sort("trade_date", -1).limit(10)
+            
+            margin_list = list(margin_cursor)
+            
+            # 计算融资买入趋势和余额增长
+            margin_buy_trend = None
+            margin_balance_growth = None
+            
+            if len(margin_list) >= 3:
+                try:
+                    # 计算融资买入趋势（最近3天vs前3天）
+                    recent_buy = []
+                    for i in range(min(3, len(margin_list))):
+                        buy_amount = float(margin_list[i].get("rzmre", 0))
+                        recent_buy.append(buy_amount)
+                    
+                    baseline_buy = []
+                    for i in range(3, min(6, len(margin_list))):
+                        buy_amount = float(margin_list[i].get("rzmre", 0))
+                        baseline_buy.append(buy_amount)
+                    
+                    if recent_buy and baseline_buy:
+                        recent_avg = sum(recent_buy) / len(recent_buy)
+                        baseline_avg = sum(baseline_buy) / len(baseline_buy)
+                        
+                        if baseline_avg > 0:
+                            growth_rate = (recent_avg - baseline_avg) / baseline_avg * 100
+                            margin_buy_trend = round(growth_rate, 2)  # 直接返回实际趋势百分比
+                    
+                    # 计算融资余额增长率（最新vs一周前）
+                    if len(margin_list) >= 2:
+                        latest_balance = float(margin_list[0].get("rzye", 0))
+                        week_ago_balance = float(margin_list[-1].get("rzye", 0))
+                        
+                        if week_ago_balance > 0:
+                            growth_rate = (latest_balance - week_ago_balance) / week_ago_balance * 100
+                            margin_balance_growth = round(growth_rate, 2)  # 直接返回实际增长率
+                            
+                except (ValueError, TypeError, ZeroDivisionError):
+                    pass
+            
+            # 动态评分计算 - 基于融资买入趋势和余额增长
+            base_score = 50  # 基础分
+            
+            # 根据融资买入趋势加分（-25到+25分）
+            if margin_buy_trend is not None:
+                trend_score = max(-25, min(25, margin_buy_trend * 0.25))
+                base_score += trend_score
+            
+            # 根据融资余额增长加分（-25到+25分）
+            if margin_balance_growth is not None:
+                growth_score = max(-25, min(25, margin_balance_growth * 0.25))
+                base_score += growth_score
+            
+            # 确保评分在0-100范围内
+            base_score = max(0, min(100, round(base_score, 1)))
+            
+            
+            # 精简结果对象，只包含前端表格需要的字段
+            result = {
+                'ts_code': ts_code,
+                'name': stock_info.get('name', ''),
+                'industry': stock_info.get('industry', ''),
+                'score': base_score,
+                'close': float(price_data.get('close', 0)) if price_data and price_data.get('close') else None,
+                'pct_chg': float(price_data.get('pct_chg', 0)) if price_data and price_data.get('pct_chg') else None,
+                'total_mv': float(price_data.get('total_mv', 0)) if price_data and price_data.get('total_mv') else None,
+                'margin_buy_trend': margin_buy_trend,
+                'margin_balance_growth': margin_balance_growth,
+                'fund_tracking_score': base_score
+            }
+            
+            results.append(result)
+            
+        except Exception as e:
+            logger.error(f"计算{ts_code}评分失败: {str(e)}")
+            continue
+    
+    return results
 
 async def _generic_template_screening(
     request: StrategyRequest,

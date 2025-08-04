@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException, Query, Body, BackgroundTasks, Depe
 from fastapi.responses import StreamingResponse
 from typing import List, Optional, Dict, Any, Union
 from pydantic import BaseModel, Field, validator
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import logging
 import uuid
 import asyncio
@@ -18,6 +18,7 @@ import json
 import os
 import sys
 import jwt
+import redis
 from dotenv import load_dotenv
 
 # 添加项目根目录到路径以导入回测模块
@@ -43,9 +44,12 @@ except ImportError:
         return decorator
 
 try:
+    from api.db_handler import DBHandler
+    db_handler = DBHandler()
     HAS_DB_HANDLER = True
 except ImportError:
     HAS_DB_HANDLER = False
+    db_handler = None
 
 try:
     from routers.user import get_current_user
@@ -65,8 +69,161 @@ def get_user_dependency():
             return {"user_id": "anonymous", "role": "user"}
         return Depends(anonymous_user)
 
-# 全局任务存储 - 用于实时任务状态和数据管理
-active_tasks: Dict[str, Dict[str, Any]] = {}
+# 日志配置 - 移到前面以确保TaskManager可以使用
+logger = logging.getLogger(__name__)
+
+# Redis任务状态管理器
+class TaskManager:
+    """跨进程的任务状态管理器"""
+    
+    def __init__(self):
+        try:
+            self.redis_client = redis.Redis(
+                host='localhost',
+                port=6379,
+                db=1,  # 使用数据库1专门存储任务状态
+                decode_responses=True,
+                socket_timeout=5,
+                socket_connect_timeout=5
+            )
+            # 测试连接
+            self.redis_client.ping()
+            logger.info("✅ Redis任务管理器初始化成功")
+        except Exception as e:
+            logger.warning(f"⚠️ Redis连接失败，降级到内存模式: {e}")
+            self.redis_client = None
+            self._memory_tasks = {}
+    
+    def _get_task_key(self, task_id: str) -> str:
+        """获取任务在Redis中的key"""
+        return f"backtest_task:{task_id}"
+    
+    def set_task(self, task_id: str, task_data: Dict[str, Any]) -> None:
+        """设置任务状态"""
+        try:
+            if self.redis_client:
+                # 序列化任务数据
+                task_json = json.dumps(task_data, default=str)
+                self.redis_client.setex(
+                    self._get_task_key(task_id),
+                    7200,  # 2小时过期
+                    task_json
+                )
+            else:
+                # 降级到内存模式
+                self._memory_tasks[task_id] = task_data
+        except Exception as e:
+            logger.error(f"设置任务状态失败: {e}")
+    
+    def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """获取任务状态"""
+        try:
+            if self.redis_client:
+                task_json = self.redis_client.get(self._get_task_key(task_id))
+                if task_json:
+                    return json.loads(task_json)
+                return None
+            else:
+                return self._memory_tasks.get(task_id)
+        except Exception as e:
+            logger.error(f"获取任务状态失败: {e}")
+            return None
+    
+    def update_task(self, task_id: str, updates: Dict[str, Any]) -> bool:
+        """更新任务状态"""
+        try:
+            task_data = self.get_task(task_id)
+            if task_data:
+                task_data.update(updates)
+                self.set_task(task_id, task_data)
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"更新任务状态失败: {e}")
+            return False
+    
+    def delete_task(self, task_id: str) -> bool:
+        """删除任务"""
+        try:
+            if self.redis_client:
+                return bool(self.redis_client.delete(self._get_task_key(task_id)))
+            else:
+                return self._memory_tasks.pop(task_id, None) is not None
+        except Exception as e:
+            logger.error(f"删除任务失败: {e}")
+            return False
+    
+    def task_exists(self, task_id: str) -> bool:
+        """检查任务是否存在"""
+        return self.get_task(task_id) is not None
+    
+    def get_all_tasks(self) -> Dict[str, Dict[str, Any]]:
+        """获取所有任务（用于列表查询）"""
+        try:
+            if self.redis_client:
+                pattern = "backtest_task:*"
+                keys = self.redis_client.keys(pattern)
+                tasks = {}
+                for key in keys:
+                    task_id = key.replace("backtest_task:", "")
+                    task_data = self.get_task(task_id)
+                    if task_data:
+                        tasks[task_id] = task_data
+                return tasks
+            else:
+                return self._memory_tasks.copy()
+        except Exception as e:
+            logger.error(f"获取所有任务失败: {e}")
+            return {}
+
+# 创建全局任务管理器实例
+task_manager = TaskManager()
+
+# 保持向后兼容性 - 提供active_tasks接口的包装类
+class ActiveTasksCompat:
+    """向后兼容的active_tasks包装器"""
+    
+    def __getitem__(self, task_id: str):
+        return task_manager.get_task(task_id)
+    
+    def __setitem__(self, task_id: str, task_data: Dict[str, Any]):
+        task_manager.set_task(task_id, task_data)
+    
+    def __contains__(self, task_id: str):
+        return task_manager.task_exists(task_id)
+    
+    def __len__(self):
+        return len(task_manager.get_all_tasks())
+    
+    def get(self, task_id: str, default=None):
+        task = task_manager.get_task(task_id)
+        return task if task is not None else default
+    
+    def keys(self):
+        return task_manager.get_all_tasks().keys()
+    
+    def values(self):
+        return task_manager.get_all_tasks().values()
+    
+    def items(self):
+        return task_manager.get_all_tasks().items()
+    
+    def pop(self, task_id: str, default=None):
+        task = task_manager.get_task(task_id)
+        if task:
+            task_manager.delete_task(task_id)
+            return task
+        return default
+    
+    def update(self, *args, **kwargs):
+        # 这个方法需要特殊处理，因为我们需要task_id
+        # 一般用法是 active_tasks[task_id].update(updates)
+        # 这会通过__getitem__获取任务，然后直接修改
+        # 我们需要在调用代码中使用task_manager.update_task()
+        pass
+
+# 创建兼容性实例
+active_tasks = ActiveTasksCompat()
 
 # WebSocket连接管理器
 class WebSocketConnectionManager:
@@ -140,9 +297,6 @@ class WebSocketConnectionManager:
 
 # 全局WebSocket管理器实例
 ws_manager = WebSocketConnectionManager()
-
-# 日志配置
-logger = logging.getLogger(__name__)
 
 # =============================================================================
 # 数据模型定义
@@ -565,13 +719,12 @@ async def run_backtest_task(task_id: str, config: BacktestConfig, user_id: str):
     """运行回测任务的后台函数"""
     try:
         # 更新任务状态为运行中
-        if task_id in active_tasks:
-            active_tasks[task_id].update({
-                'status': 'running',
-                'started_at': datetime.now(),
-                'message': '回测开始执行',
-                'progress': 0.0
-            })
+        task_manager.update_task(task_id, {
+            'status': 'running',
+            'started_at': datetime.now(),
+            'message': '回测开始执行',
+            'progress': 0.0
+        })
         
         # 创建策略配置
         strategy_config = create_strategy_config(config)
@@ -623,31 +776,53 @@ async def run_backtest_task(task_id: str, config: BacktestConfig, user_id: str):
         except Exception as e:
             logger.error(f"处理基准指数数据时出错: {e}")
         
-        # 更新任务完成状态
-        if task_id in active_tasks:
-            active_tasks[task_id].update({
-                'status': 'completed',
-                'completed_at': datetime.now(),
-                'progress': 1.0,
-                'message': '回测完成',
-                'result': result
-            })
-            
-            # 尝试从结果中提取和存储结果目录路径信息
-            try:
+        # 更新任务完成状态 - 保持30分钟供前端轮询
+        logger.info(f"🔍 准备更新任务状态: {task_id}")
+        logger.info(f"📋 active_tasks中是否存在任务: {task_id in active_tasks}")
+        logger.info(f"📊 当前active_tasks任务数量: {len(active_tasks)}")
+        
+        completed_time = datetime.now()
+        logger.info(f"✅ 开始更新任务 {task_id} 为完成状态")
+        task_manager.update_task(task_id, {
+            'status': 'completed',
+            'completed_at': completed_time,
+            'progress': 1.0,
+            'message': '回测完成',
+            'result': result,
+            'auto_cleanup_at': completed_time + timedelta(minutes=30)  # 30分钟后自动清理
+        })
+        logger.info(f"🎯 任务 {task_id} 状态已更新为completed，30分钟后自动清理")
+        
+        # 安排30分钟后自动清理任务
+        def cleanup_task():
+            if task_id in active_tasks and active_tasks[task_id].get('status') == 'completed':
+                logger.info(f"🗑️ 自动清理已完成任务: {task_id}")
+                task_manager.delete_task(task_id)
+        
+        # 使用线程定时器延迟清理
+        import threading
+        cleanup_timer = threading.Timer(1800.0, cleanup_task)  # 30分钟 = 1800秒
+        cleanup_timer.start()
+        
+        # 尝试从结果中提取和存储结果目录路径信息
+        try:
                 if 'chart_data' in result and result['chart_data']:
                     # 根据策略名称映射到实际目录名
                     strategy_mapping = {
-                        'multi_trend': 'MultiTrendResonanceStrategyAdapter',
-                        'boll': 'CuriousRagdollBollStrategyAdapter', 
-                        'taishang_3_factor': 'TaiShang3FactorStrategyAdapter'
+                        'multi_trend': '太上老君1号策略',
+                        'boll': '太上老君2号策略', 
+                        'taishang_3_factor': '太上老君3号策略'
                     }
                     strategy_name = strategy_mapping.get(config.strategy_type, config.strategy_type)
                     
                     # 查找最新的结果目录（基于修改时间）
                     import os
                     import glob
-                    results_dir = "/Users/libing/kk_Projects/kk_Stock/kk_stock_backend/results"
+                    # 使用相对路径，基于当前工作目录
+                    current_dir = os.path.dirname(os.path.abspath(__file__))
+                    api_dir = os.path.dirname(current_dir)
+                    project_root = os.path.dirname(api_dir)
+                    results_dir = os.path.join(project_root, "results")
                     strategy_dir = os.path.join(results_dir, strategy_name)
                     
                     if os.path.exists(strategy_dir):
@@ -663,20 +838,32 @@ async def run_backtest_task(task_id: str, config: BacktestConfig, user_id: str):
                                 active_tasks[task_id]['result_dir'] = result_dir_path
                                 logger.info(f"📁 存储结果目录路径: {result_dir_path}")
                             
-            except Exception as e:
-                logger.warning(f"存储结果目录路径失败: {e}")
+        except Exception as e:
+            logger.warning(f"存储结果目录路径失败: {e}")
         
         logger.info(f"回测任务 {task_id} 完成")
         
     except Exception as e:
         logger.error(f"回测任务 {task_id} 失败: {e}")
         if task_id in active_tasks:
+            failed_time = datetime.now()
             active_tasks[task_id].update({
                 'status': 'failed',
-                'completed_at': datetime.now(),
+                'completed_at': failed_time,
                 'progress': 0.0,
-                'message': f'回测失败: {str(e)}'
+                'message': f'回测失败: {str(e)}',
+                'auto_cleanup_at': failed_time + timedelta(minutes=30)  # 30分钟后自动清理
             })
+            
+            # 安排30分钟后自动清理失败的任务
+            def cleanup_failed_task():
+                if task_id in active_tasks and active_tasks[task_id].get('status') == 'failed':
+                    logger.info(f"🗑️ 自动清理失败任务: {task_id}")
+                    del active_tasks[task_id]
+            
+            import threading
+            cleanup_timer = threading.Timer(1800.0, cleanup_failed_task)  # 30分钟 = 1800秒
+            cleanup_timer.start()
 
 # =============================================================================
 # 实时数据推送 (SSE)
@@ -1014,6 +1201,12 @@ async def run_backtest(
         'result': None
     }
     
+    # 调试：确认任务已添加到active_tasks
+    logger.info(f"✅ 任务已添加到active_tasks: {task_id}")
+    logger.info(f"📊 添加后active_tasks数量: {len(active_tasks)}")
+    logger.info(f"📋 active_tasks中的任务列表: {list(active_tasks.keys())}")
+    logger.info(f"📝 验证任务是否存在: {task_id in active_tasks}")
+    
     # 添加后台任务
     background_tasks.add_task(run_backtest_task, task_id, config, user_id)
     
@@ -1023,7 +1216,13 @@ async def run_backtest(
 @router.get("/task/{task_id}", response_model=BacktestTask)
 async def get_task_status(task_id: str, current_user: dict = get_user_dependency()):
     """获取任务状态"""
+    logger.info(f"🔍 前端查询任务状态: {task_id}")
+    logger.info(f"📊 当前active_tasks数量: {len(active_tasks)}")
+    logger.info(f"📋 active_tasks中的任务ID列表: {list(active_tasks.keys())}")
+    logger.info(f"📝 查询的任务是否存在: {task_id in active_tasks}")
+    
     if task_id not in active_tasks:
+        logger.warning(f"❌ 任务 {task_id} 不在active_tasks中！返回404")
         raise HTTPException(status_code=404, detail="任务不存在")
     
     task = active_tasks[task_id]
@@ -1348,7 +1547,11 @@ async def get_trades_data(
             try:
                 # 获取结果目录路径（基于任务配置）
                 import os
-                results_dir = "/home/libing/kk_Projects/kk_stock/kk_stock_backend/results"
+                # 使用相对路径，基于当前工作目录
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                api_dir = os.path.dirname(current_dir)
+                project_root = os.path.dirname(api_dir)
+                results_dir = os.path.join(project_root, "results")
                 
                 # 优先尝试：如果任务在active_tasks中，且有结果目录信息
                 matching_files = []
@@ -1502,105 +1705,105 @@ async def get_benchmark_index_data(
 # 实时数据推送端点 (SSE)
 # =============================================================================
 
-@router.get("/sse/test")
-async def test_connection():
-    """测试SSE连接"""
-    return {"message": "SSE测试连接成功", "timestamp": datetime.now().isoformat()}
+# @router.get("/sse/test")
+# async def test_connection():
+#     """测试SSE连接"""
+#     return {"message": "SSE测试连接成功", "timestamp": datetime.now().isoformat()}
 
-@router.get("/sse/test-stream")
-async def test_stream():
-    """测试SSE流是否正常"""
-    async def test_generator():
-        for i in range(5):
-            yield f"data: {{\"message\": \"测试消息 {i+1}\", \"timestamp\": \"{datetime.now().isoformat()}\"}}\n\n"
-            await asyncio.sleep(1)
-        yield f"data: {{\"message\": \"测试完成\", \"final\": true}}\n\n"
+# @router.get("/sse/test-stream")
+# async def test_stream():
+#     """测试SSE流是否正常"""
+#     async def test_generator():
+#         for i in range(5):
+#             yield f"data: {{\"message\": \"测试消息 {i+1}\", \"timestamp\": \"{datetime.now().isoformat()}\"}}\n\n"
+#             await asyncio.sleep(1)
+#         yield f"data: {{\"message\": \"测试完成\", \"final\": true}}\n\n"
     
-    return StreamingResponse(
-        test_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "Cache-Control"
-        }
-    )
+#     return StreamingResponse(
+#         test_generator(),
+#         media_type="text/event-stream",
+#         headers={
+#             "Cache-Control": "no-cache",
+#             "Connection": "keep-alive",
+#             "Access-Control-Allow-Origin": "*",
+#             "Access-Control-Allow-Headers": "Cache-Control"
+#         }
+#     )
 
-@router.get("/sse/progress/{task_id}")
-async def stream_progress(task_id: str, user: dict = Depends(get_current_user_sse)):
-    """推送进度数据"""
-    _ = user  # 用户验证已通过，此处暂不使用
-    return StreamingResponse(
-        sse_generator(task_id, "progress"),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "Cache-Control"
-        }
-    )
+# @router.get("/sse/progress/{task_id}")
+# async def stream_progress(task_id: str, user: dict = Depends(get_current_user_sse)):
+#     """推送进度数据"""
+#     _ = user  # 用户验证已通过，此处暂不使用
+#     return StreamingResponse(
+#         sse_generator(task_id, "progress"),
+#         media_type="text/event-stream",
+#         headers={
+#             "Cache-Control": "no-cache",
+#             "Connection": "keep-alive",
+#             "Access-Control-Allow-Origin": "*",
+#             "Access-Control-Allow-Headers": "Cache-Control"
+#         }
+#     )
 
-@router.get("/sse/portfolio/{task_id}")
-async def stream_portfolio(task_id: str, user: dict = Depends(get_current_user_sse)):
-    """推送组合数据"""
-    _ = user  # 用户验证已通过，此处暂不使用
-    return StreamingResponse(
-        sse_generator(task_id, "portfolio"),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "Cache-Control"
-        }
-    )
+# @router.get("/sse/portfolio/{task_id}")
+# async def stream_portfolio(task_id: str, user: dict = Depends(get_current_user_sse)):
+#     """推送组合数据"""
+#     _ = user  # 用户验证已通过，此处暂不使用
+#     return StreamingResponse(
+#         sse_generator(task_id, "portfolio"),
+#         media_type="text/event-stream",
+#         headers={
+#             "Cache-Control": "no-cache",
+#             "Connection": "keep-alive",
+#             "Access-Control-Allow-Origin": "*",
+#             "Access-Control-Allow-Headers": "Cache-Control"
+#         }
+#     )
 
-@router.get("/sse/trades/{task_id}")
-async def stream_trades(task_id: str, user: dict = Depends(get_current_user_sse)):
-    """推送交易数据"""
-    _ = user  # 用户验证已通过，此处暂不使用
-    return StreamingResponse(
-        sse_generator(task_id, "trades"),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "Cache-Control"
-        }
-    )
+# @router.get("/sse/trades/{task_id}")
+# async def stream_trades(task_id: str, user: dict = Depends(get_current_user_sse)):
+#     """推送交易数据"""
+#     _ = user  # 用户验证已通过，此处暂不使用
+#     return StreamingResponse(
+#         sse_generator(task_id, "trades"),
+#         media_type="text/event-stream",
+#         headers={
+#             "Cache-Control": "no-cache",
+#             "Connection": "keep-alive",
+#             "Access-Control-Allow-Origin": "*",
+#             "Access-Control-Allow-Headers": "Cache-Control"
+#         }
+#     )
 
-@router.get("/sse/chart/{task_id}")
-async def stream_chart(task_id: str, user: dict = Depends(get_current_user_sse)):
-    """推送图表数据"""
-    _ = user  # 用户验证已通过，此处暂不使用
-    return StreamingResponse(
-        sse_generator(task_id, "chart"),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "Cache-Control"
-        }
-    )
+# @router.get("/sse/chart/{task_id}")
+# async def stream_chart(task_id: str, user: dict = Depends(get_current_user_sse)):
+#     """推送图表数据"""
+#     _ = user  # 用户验证已通过，此处暂不使用
+#     return StreamingResponse(
+#         sse_generator(task_id, "chart"),
+#         media_type="text/event-stream",
+#         headers={
+#             "Cache-Control": "no-cache",
+#             "Connection": "keep-alive",
+#             "Access-Control-Allow-Origin": "*",
+#             "Access-Control-Allow-Headers": "Cache-Control"
+#         }
+#     )
 
-@router.get("/sse/realtime/{task_id}")
-async def stream_realtime(task_id: str, user: dict = Depends(get_current_user_sse)):
-    """推送实时综合数据（推荐使用）"""
-    _ = user  # 用户验证已通过，此处暂不使用
-    return StreamingResponse(
-        sse_generator(task_id, "realtime"),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "Cache-Control"
-        }
-    )
+# @router.get("/sse/realtime/{task_id}")
+# async def stream_realtime(task_id: str, user: dict = Depends(get_current_user_sse)):
+#     """推送实时综合数据（推荐使用）"""
+#     _ = user  # 用户验证已通过，此处暂不使用
+#     return StreamingResponse(
+#         sse_generator(task_id, "realtime"),
+#         media_type="text/event-stream",
+#         headers={
+#             "Cache-Control": "no-cache",
+#             "Connection": "keep-alive",
+#             "Access-Control-Allow-Origin": "*",
+#             "Access-Control-Allow-Headers": "Cache-Control"
+#         }
+#     )
 
 # =============================================================================
 # 辅助查询接口
@@ -1618,26 +1821,26 @@ async def get_available_indices():
     ]
     return indices
 
-@router.get("/stock-pool/{index_code}")
-@cache_endpoint(data_type='stock_pool', ttl=3600)
-async def get_stock_pool(
-    index_code: str,
-    limit: int = Query(100, ge=10, le=1000, description="返回数量限制")
-):
-    """获取指数成分股池"""
-    # 这里应该实现真实的股票池查询逻辑
-    # 简化版本返回模拟数据
-    stocks = [
-        {"code": f"00000{i}.SZ", "name": f"股票{i}", "weight": 0.01}
-        for i in range(1, min(limit + 1, 101))
-    ]
+# @router.get("/stock-pool/{index_code}")
+# @cache_endpoint(data_type='stock_pool', ttl=3600)
+# async def get_stock_pool(
+#     index_code: str,
+#     limit: int = Query(100, ge=10, le=1000, description="返回数量限制")
+# ):
+#     """获取指数成分股池"""
+#     # 这里应该实现真实的股票池查询逻辑
+#     # 简化版本返回模拟数据
+#     stocks = [
+#         {"code": f"00000{i}.SZ", "name": f"股票{i}", "weight": 0.01}
+#         for i in range(1, min(limit + 1, 101))
+#     ]
     
-    return {
-        "index_code": index_code,
-        "stocks": stocks,
-        "total": len(stocks),
-        "update_time": datetime.now().isoformat()
-    }
+#     return {
+#         "index_code": index_code,
+#         "stocks": stocks,
+#         "total": len(stocks),
+#         "update_time": datetime.now().isoformat()
+#     }
 
 @router.get("/health")
 async def backtest_health_check():
@@ -1657,327 +1860,327 @@ async def backtest_health_check():
 # WebSocket实时数据推送
 # =============================================================================
 
-async def websocket_data_broadcaster(task_id: str):
-    """WebSocket数据广播器 - 持续监控任务状态并推送数据"""
-    logger.info(f"开始WebSocket数据广播: task_id={task_id}")
+# async def websocket_data_broadcaster(task_id: str):
+#     """WebSocket数据广播器 - 持续监控任务状态并推送数据"""
+#     logger.info(f"开始WebSocket数据广播: task_id={task_id}")
     
-    last_progress_data = None
-    last_portfolio_data = None
-    last_trades_count = 0
+#     last_progress_data = None
+#     last_portfolio_data = None
+#     last_trades_count = 0
     
-    try:
-        while task_id in active_tasks:
-            task_info = active_tasks[task_id]
-            has_new_data = False
+#     try:
+#         while task_id in active_tasks:
+#             task_info = active_tasks[task_id]
+#             has_new_data = False
             
-            # 检查进度变化
-            current_progress = {
-                "progress": task_info.get('progress', 0.0),
-                "status": task_info.get('status', 'pending'),
-                "current_date": task_info.get('current_date'),
-                "message": task_info.get('message', '')
-            }
+#             # 检查进度变化
+#             current_progress = {
+#                 "progress": task_info.get('progress', 0.0),
+#                 "status": task_info.get('status', 'pending'),
+#                 "current_date": task_info.get('current_date'),
+#                 "message": task_info.get('message', '')
+#             }
             
-            if not last_progress_data or current_progress != last_progress_data:
-                progress_message = {
-                    "type": "progress",
-                    "task_id": task_id,
-                    "data": current_progress,
-                    "timestamp": datetime.now().isoformat()
-                }
-                await ws_manager.broadcast_to_task(progress_message, task_id)
-                last_progress_data = current_progress
-                has_new_data = True
+#             if not last_progress_data or current_progress != last_progress_data:
+#                 progress_message = {
+#                     "type": "progress",
+#                     "task_id": task_id,
+#                     "data": current_progress,
+#                     "timestamp": datetime.now().isoformat()
+#                 }
+#                 await ws_manager.broadcast_to_task(progress_message, task_id)
+#                 last_progress_data = current_progress
+#                 has_new_data = True
             
-            # 检查组合数据变化
-            current_portfolio = {
-                "current_date": task_info.get('current_date', ''),
-                "total_value": task_info.get('current_portfolio_value', 0.0),
-                "total_return": task_info.get('total_return', 0.0),
-                "daily_return": task_info.get('daily_return', 0.0),
-                "drawdown": task_info.get('current_drawdown', 0.0)
-            }
+#             # 检查组合数据变化
+#             current_portfolio = {
+#                 "current_date": task_info.get('current_date', ''),
+#                 "total_value": task_info.get('current_portfolio_value', 0.0),
+#                 "total_return": task_info.get('total_return', 0.0),
+#                 "daily_return": task_info.get('daily_return', 0.0),
+#                 "drawdown": task_info.get('current_drawdown', 0.0)
+#             }
             
-            data_updated_flag = task_info.get('data_updated', False)
-            date_changed = (current_portfolio['current_date'] and 
-                           (not last_portfolio_data or 
-                            current_portfolio['current_date'] != last_portfolio_data.get('current_date')))
+#             data_updated_flag = task_info.get('data_updated', False)
+#             date_changed = (current_portfolio['current_date'] and 
+#                            (not last_portfolio_data or 
+#                             current_portfolio['current_date'] != last_portfolio_data.get('current_date')))
             
-            if date_changed or data_updated_flag:
-                portfolio_message = {
-                    "type": "portfolio",
-                    "task_id": task_id,
-                    "data": {
-                        "current_date": current_portfolio['current_date'],
-                        "portfolio": {
-                            "total_value": current_portfolio['total_value'],
-                            "cash": task_info.get('current_cash', 0.0),
-                            "positions_value": task_info.get('current_positions_value', 0.0),
-                            "positions": task_info.get('current_positions', []),
-                            "daily_return": current_portfolio['daily_return'],
-                            "total_return": current_portfolio['total_return'],
-                            "drawdown": current_portfolio['drawdown']
-                        }
-                    },
-                    "timestamp": datetime.now().isoformat()
-                }
-                await ws_manager.broadcast_to_task(portfolio_message, task_id)
-                logger.info(f"🔄 WebSocket推送Portfolio数据: {current_portfolio['current_date']}, 组合价值: {current_portfolio['total_value']:,.2f}")
-                last_portfolio_data = current_portfolio
-                has_new_data = True
+#             if date_changed or data_updated_flag:
+#                 portfolio_message = {
+#                     "type": "portfolio",
+#                     "task_id": task_id,
+#                     "data": {
+#                         "current_date": current_portfolio['current_date'],
+#                         "portfolio": {
+#                             "total_value": current_portfolio['total_value'],
+#                             "cash": task_info.get('current_cash', 0.0),
+#                             "positions_value": task_info.get('current_positions_value', 0.0),
+#                             "positions": task_info.get('current_positions', []),
+#                             "daily_return": current_portfolio['daily_return'],
+#                             "total_return": current_portfolio['total_return'],
+#                             "drawdown": current_portfolio['drawdown']
+#                         }
+#                     },
+#                     "timestamp": datetime.now().isoformat()
+#                 }
+#                 await ws_manager.broadcast_to_task(portfolio_message, task_id)
+#                 logger.info(f"🔄 WebSocket推送Portfolio数据: {current_portfolio['current_date']}, 组合价值: {current_portfolio['total_value']:,.2f}")
+#                 last_portfolio_data = current_portfolio
+#                 has_new_data = True
                 
-                # 重置数据更新标志
-                if 'data_updated' in task_info:
-                    task_info['data_updated'] = False
+#                 # 重置数据更新标志
+#                 if 'data_updated' in task_info:
+#                     task_info['data_updated'] = False
             
-            # 检查交易数据变化
-            current_trades_count = task_info.get('total_trades', 0)
-            if current_trades_count > last_trades_count:
-                trades_message = {
-                    "type": "trades",
-                    "task_id": task_id,
-                    "data": {
-                        "current_date": task_info.get('current_date', ''),
-                        "recent_trades": task_info.get('recent_trades', []),
-                        "trade_stats": {
-                            "total_trades": current_trades_count,
-                            "buy_trades": task_info.get('buy_trades', 0),
-                            "sell_trades": task_info.get('sell_trades', 0),
-                            "win_trades": task_info.get('win_trades', 0),
-                            "lose_trades": task_info.get('lose_trades', 0),
-                            "win_rate": task_info.get('win_rate', 0.0),
-                            "total_pnl": task_info.get('total_pnl', 0.0)
-                        }
-                    },
-                    "timestamp": datetime.now().isoformat()
-                }
-                await ws_manager.broadcast_to_task(trades_message, task_id)
-                last_trades_count = current_trades_count
-                has_new_data = True
+#             # 检查交易数据变化
+#             current_trades_count = task_info.get('total_trades', 0)
+#             if current_trades_count > last_trades_count:
+#                 trades_message = {
+#                     "type": "trades",
+#                     "task_id": task_id,
+#                     "data": {
+#                         "current_date": task_info.get('current_date', ''),
+#                         "recent_trades": task_info.get('recent_trades', []),
+#                         "trade_stats": {
+#                             "total_trades": current_trades_count,
+#                             "buy_trades": task_info.get('buy_trades', 0),
+#                             "sell_trades": task_info.get('sell_trades', 0),
+#                             "win_trades": task_info.get('win_trades', 0),
+#                             "lose_trades": task_info.get('lose_trades', 0),
+#                             "win_rate": task_info.get('win_rate', 0.0),
+#                             "total_pnl": task_info.get('total_pnl', 0.0)
+#                         }
+#                     },
+#                     "timestamp": datetime.now().isoformat()
+#                 }
+#                 await ws_manager.broadcast_to_task(trades_message, task_id)
+#                 last_trades_count = current_trades_count
+#                 has_new_data = True
             
-            # 检查图表数据变化
-            if task_info.get('date_series'):
-                chart_message = {
-                    "type": "chart",
-                    "task_id": task_id,
-                    "data": {
-                        "current_date": task_info.get('current_date', ''),
-                        "chart_data": {
-                            "dates": task_info.get('date_series', []),
-                            "portfolio_values": task_info.get('portfolio_series', []),
-                            "daily_returns": task_info.get('daily_return_series', []),
-                            "cumulative_returns": task_info.get('cumulative_return_series', []),
-                            "drawdowns": task_info.get('drawdown_series', [])
-                        }
-                    },
-                    "timestamp": datetime.now().isoformat()
-                }
-                await ws_manager.broadcast_to_task(chart_message, task_id)
-                has_new_data = True
+#             # 检查图表数据变化
+#             if task_info.get('date_series'):
+#                 chart_message = {
+#                     "type": "chart",
+#                     "task_id": task_id,
+#                     "data": {
+#                         "current_date": task_info.get('current_date', ''),
+#                         "chart_data": {
+#                             "dates": task_info.get('date_series', []),
+#                             "portfolio_values": task_info.get('portfolio_series', []),
+#                             "daily_returns": task_info.get('daily_return_series', []),
+#                             "cumulative_returns": task_info.get('cumulative_return_series', []),
+#                             "drawdowns": task_info.get('drawdown_series', [])
+#                         }
+#                     },
+#                     "timestamp": datetime.now().isoformat()
+#                 }
+#                 await ws_manager.broadcast_to_task(chart_message, task_id)
+#                 has_new_data = True
             
-            # 检查任务完成状态
-            status = task_info.get('status', 'pending')
-            if status in ['completed', 'failed']:
-                final_message = {
-                    "type": "final",
-                    "task_id": task_id,
-                    "data": {
-                        "status": status,
-                        "message": task_info.get('message', ''),
-                        "result_available": status == 'completed'
-                    },
-                    "timestamp": datetime.now().isoformat()
-                }
-                await ws_manager.broadcast_to_task(final_message, task_id)
-                logger.info(f"WebSocket广播任务完成: task_id={task_id}, status={status}")
-                break
+#             # 检查任务完成状态
+#             status = task_info.get('status', 'pending')
+#             if status in ['completed', 'failed']:
+#                 final_message = {
+#                     "type": "final",
+#                     "task_id": task_id,
+#                     "data": {
+#                         "status": status,
+#                         "message": task_info.get('message', ''),
+#                         "result_available": status == 'completed'
+#                     },
+#                     "timestamp": datetime.now().isoformat()
+#                 }
+#                 await ws_manager.broadcast_to_task(final_message, task_id)
+#                 logger.info(f"WebSocket广播任务完成: task_id={task_id}, status={status}")
+#                 break
             
-            # 动态调整推送频率
-            if has_new_data:
-                await asyncio.sleep(0.05)  # 有新数据时快速推送
-            else:
-                await asyncio.sleep(0.5)   # 无新数据时降低频率
+#             # 动态调整推送频率
+#             if has_new_data:
+#                 await asyncio.sleep(0.05)  # 有新数据时快速推送
+#             else:
+#                 await asyncio.sleep(0.5)   # 无新数据时降低频率
                 
-    except Exception as e:
-        logger.error(f"WebSocket广播器异常: task_id={task_id}, error={e}")
-    finally:
-        logger.info(f"WebSocket广播器结束: task_id={task_id}")
+#     except Exception as e:
+#         logger.error(f"WebSocket广播器异常: task_id={task_id}, error={e}")
+#     finally:
+#         logger.info(f"WebSocket广播器结束: task_id={task_id}")
 
-async def websocket_authenticate(websocket: WebSocket, token: str) -> dict:
-    """WebSocket认证"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id = payload.get("user_id")
-        if user_id is None:
-            raise HTTPException(status_code=401, detail="Token无效")
+# async def websocket_authenticate(websocket: WebSocket, token: str) -> dict:
+#     """WebSocket认证"""
+#     try:
+#         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+#         user_id = payload.get("user_id")
+#         if user_id is None:
+#             raise HTTPException(status_code=401, detail="Token无效")
         
-        # 简化的用户验证，实际应该查询数据库
-        return {"user_id": user_id, "role": "user"}
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token已过期")
-    except Exception:
-        raise HTTPException(status_code=401, detail="Token无效")
+#         # 简化的用户验证，实际应该查询数据库
+#         return {"user_id": user_id, "role": "user"}
+#     except jwt.ExpiredSignatureError:
+#         raise HTTPException(status_code=401, detail="Token已过期")
+#     except Exception:
+#         raise HTTPException(status_code=401, detail="Token无效")
 
-def update_task_realtime_data(task_id: str, update_data: Dict[str, Any]):
-    """更新任务的实时数据 - 保留兼容性函数"""
-    if task_id in active_tasks:
-        active_tasks[task_id].update(update_data)
+# def update_task_realtime_data(task_id: str, update_data: Dict[str, Any]):
+#     """更新任务的实时数据 - 保留兼容性函数"""
+#     if task_id in active_tasks:
+#         active_tasks[task_id].update(update_data)
 
-# =============================================================================
-# WebSocket端点
-# =============================================================================
+# # =============================================================================
+# # WebSocket端点
+# # =============================================================================
 
-@router.websocket("/ws/test")
-async def websocket_test_endpoint(websocket: WebSocket):
-    """WebSocket测试端点"""
-    await websocket.accept()
-    try:
-        # 发送欢迎消息
-        await websocket.send_text(json.dumps({
-            "type": "welcome",
-            "message": "WebSocket连接测试成功",
-            "timestamp": datetime.now().isoformat()
-        }))
+# @router.websocket("/ws/test")
+# async def websocket_test_endpoint(websocket: WebSocket):
+#     """WebSocket测试端点"""
+#     await websocket.accept()
+#     try:
+#         # 发送欢迎消息
+#         await websocket.send_text(json.dumps({
+#             "type": "welcome",
+#             "message": "WebSocket连接测试成功",
+#             "timestamp": datetime.now().isoformat()
+#         }))
         
-        # 发送几条测试消息
-        for i in range(5):
-            await asyncio.sleep(1)
-            await websocket.send_text(json.dumps({
-                "type": "test",
-                "message": f"测试消息 {i+1}",
-                "timestamp": datetime.now().isoformat()
-            }))
+#         # 发送几条测试消息
+#         for i in range(5):
+#             await asyncio.sleep(1)
+#             await websocket.send_text(json.dumps({
+#                 "type": "test",
+#                 "message": f"测试消息 {i+1}",
+#                 "timestamp": datetime.now().isoformat()
+#             }))
         
-        # 发送完成消息
-        await websocket.send_text(json.dumps({
-            "type": "complete",
-            "message": "测试完成",
-            "timestamp": datetime.now().isoformat()
-        }))
+#         # 发送完成消息
+#         await websocket.send_text(json.dumps({
+#             "type": "complete",
+#             "message": "测试完成",
+#             "timestamp": datetime.now().isoformat()
+#         }))
         
-    except WebSocketDisconnect:
-        logger.info("WebSocket测试连接断开")
-    except Exception as e:
-        logger.error(f"WebSocket测试异常: {e}")
+#     except WebSocketDisconnect:
+#         logger.info("WebSocket测试连接断开")
+#     except Exception as e:
+#         logger.error(f"WebSocket测试异常: {e}")
 
-@router.websocket("/ws/realtime/{task_id}")
-async def websocket_realtime_endpoint(websocket: WebSocket, task_id: str, token: str = Query(...)):
-    """WebSocket实时数据推送端点"""
-    try:
-        # 认证
-        user = await websocket_authenticate(websocket, token)
-        logger.info(f"WebSocket用户认证成功: user_id={user['user_id']}, task_id={task_id}")
+# @router.websocket("/ws/realtime/{task_id}")
+# async def websocket_realtime_endpoint(websocket: WebSocket, task_id: str, token: str = Query(...)):
+#     """WebSocket实时数据推送端点"""
+#     try:
+#         # 认证
+#         user = await websocket_authenticate(websocket, token)
+#         logger.info(f"WebSocket用户认证成功: user_id={user['user_id']}, task_id={task_id}")
         
-        # 检查任务权限
-        if task_id not in active_tasks:
-            await websocket.close(code=1008, reason="任务不存在")
-            return
+#         # 检查任务权限
+#         if task_id not in active_tasks:
+#             await websocket.close(code=1008, reason="任务不存在")
+#             return
         
-        task = active_tasks[task_id]
-        if task['user_id'] != user['user_id'] and user.get('role') != 'admin':
-            await websocket.close(code=1008, reason="无权访问此任务")
-            return
+#         task = active_tasks[task_id]
+#         if task['user_id'] != user['user_id'] and user.get('role') != 'admin':
+#             await websocket.close(code=1008, reason="无权访问此任务")
+#             return
         
-        # 建立连接
-        connection_id = await ws_manager.connect(websocket, task_id)
+#         # 建立连接
+#         connection_id = await ws_manager.connect(websocket, task_id)
         
-        # 发送连接确认
-        await websocket.send_text(json.dumps({
-            "type": "connected",
-            "task_id": task_id,
-            "connection_id": connection_id,
-            "message": "WebSocket连接已建立",
-            "timestamp": datetime.now().isoformat()
-        }))
+#         # 发送连接确认
+#         await websocket.send_text(json.dumps({
+#             "type": "connected",
+#             "task_id": task_id,
+#             "connection_id": connection_id,
+#             "message": "WebSocket连接已建立",
+#             "timestamp": datetime.now().isoformat()
+#         }))
         
-        # 启动数据广播器（如果还没有的话）
-        if ws_manager.get_task_connection_count(task_id) == 1:
-            # 第一个连接，启动广播器
-            asyncio.create_task(websocket_data_broadcaster(task_id))
+#         # 启动数据广播器（如果还没有的话）
+#         if ws_manager.get_task_connection_count(task_id) == 1:
+#             # 第一个连接，启动广播器
+#             asyncio.create_task(websocket_data_broadcaster(task_id))
         
-        # 启动服务端心跳任务
-        async def server_heartbeat():
-            """服务端心跳任务"""
-            while True:
-                try:
-                    await asyncio.sleep(30)  # 每30秒发送一次心跳
-                    if websocket.client_state.DISCONNECTED:
-                        break
-                    await websocket.send_text(json.dumps({
-                        "type": "heartbeat",
-                        "timestamp": datetime.now().isoformat(),
-                        "task_id": task_id
-                    }))
-                except Exception as e:
-                    logger.error(f"服务端心跳发送失败: {e}")
-                    break
+#         # 启动服务端心跳任务
+#         async def server_heartbeat():
+#             """服务端心跳任务"""
+#             while True:
+#                 try:
+#                     await asyncio.sleep(30)  # 每30秒发送一次心跳
+#                     if websocket.client_state.DISCONNECTED:
+#                         break
+#                     await websocket.send_text(json.dumps({
+#                         "type": "heartbeat",
+#                         "timestamp": datetime.now().isoformat(),
+#                         "task_id": task_id
+#                     }))
+#                 except Exception as e:
+#                     logger.error(f"服务端心跳发送失败: {e}")
+#                     break
         
-        heartbeat_task = asyncio.create_task(server_heartbeat())
+#         heartbeat_task = asyncio.create_task(server_heartbeat())
         
-        # 保持连接活跃
-        while True:
-            try:
-                # 使用timeout等待客户端消息，避免无限期阻塞
-                try:
-                    message = await asyncio.wait_for(websocket.receive_text(), timeout=60.0)
-                    data = json.loads(message)
+#         # 保持连接活跃
+#         while True:
+#             try:
+#                 # 使用timeout等待客户端消息，避免无限期阻塞
+#                 try:
+#                     message = await asyncio.wait_for(websocket.receive_text(), timeout=60.0)
+#                     data = json.loads(message)
                     
-                    # 处理客户端消息
-                    if data.get("type") == "ping":
-                        await websocket.send_text(json.dumps({
-                            "type": "pong",
-                            "timestamp": datetime.now().isoformat()
-                        }))
-                    elif data.get("type") == "heartbeat_response":
-                        # 客户端响应心跳
-                        logger.debug(f"收到客户端心跳响应: task_id={task_id}")
-                    elif data.get("type") == "get_current_status":
-                        # 发送当前任务状态
-                        current_task = active_tasks.get(task_id, {})
-                        await websocket.send_text(json.dumps({
-                            "type": "current_status",
-                            "task_id": task_id,
-                            "data": {
-                                "status": current_task.get('status', 'unknown'),
-                                "progress": current_task.get('progress', 0.0),
-                                "message": current_task.get('message', ''),
-                                "current_date": current_task.get('current_date', '')
-                            },
-                            "timestamp": datetime.now().isoformat()
-                        }))
+#                     # 处理客户端消息
+#                     if data.get("type") == "ping":
+#                         await websocket.send_text(json.dumps({
+#                             "type": "pong",
+#                             "timestamp": datetime.now().isoformat()
+#                         }))
+#                     elif data.get("type") == "heartbeat_response":
+#                         # 客户端响应心跳
+#                         logger.debug(f"收到客户端心跳响应: task_id={task_id}")
+#                     elif data.get("type") == "get_current_status":
+#                         # 发送当前任务状态
+#                         current_task = active_tasks.get(task_id, {})
+#                         await websocket.send_text(json.dumps({
+#                             "type": "current_status",
+#                             "task_id": task_id,
+#                             "data": {
+#                                 "status": current_task.get('status', 'unknown'),
+#                                 "progress": current_task.get('progress', 0.0),
+#                                 "message": current_task.get('message', ''),
+#                                 "current_date": current_task.get('current_date', '')
+#                             },
+#                             "timestamp": datetime.now().isoformat()
+#                         }))
                         
-                except asyncio.TimeoutError:
-                    # 超时是正常的，继续循环等待消息
-                    continue
-                except WebSocketDisconnect:
-                    logger.info(f"WebSocket客户端主动断开连接: task_id={task_id}")
-                    break
-                except Exception as e:
-                    logger.error(f"WebSocket消息接收异常: {e}")
-                    break
+#                 except asyncio.TimeoutError:
+#                     # 超时是正常的，继续循环等待消息
+#                     continue
+#                 except WebSocketDisconnect:
+#                     logger.info(f"WebSocket客户端主动断开连接: task_id={task_id}")
+#                     break
+#                 except Exception as e:
+#                     logger.error(f"WebSocket消息接收异常: {e}")
+#                     break
                     
-            except WebSocketDisconnect:
-                logger.info(f"WebSocket连接断开: task_id={task_id}")
-                break
-            except Exception as e:
-                logger.error(f"WebSocket消息处理异常: {e}")
-                break
+#             except WebSocketDisconnect:
+#                 logger.info(f"WebSocket连接断开: task_id={task_id}")
+#                 break
+#             except Exception as e:
+#                 logger.error(f"WebSocket消息处理异常: {e}")
+#                 break
                 
-    except Exception as e:
-        logger.error(f"WebSocket连接异常: {e}")
-        try:
-            await websocket.close(code=1011, reason=str(e))
-        except:
-            pass
-    finally:
-        # 取消心跳任务
-        if 'heartbeat_task' in locals():
-            heartbeat_task.cancel()
-            try:
-                await heartbeat_task
-            except asyncio.CancelledError:
-                pass
+#     except Exception as e:
+#         logger.error(f"WebSocket连接异常: {e}")
+#         try:
+#             await websocket.close(code=1011, reason=str(e))
+#         except:
+#             pass
+#     finally:
+#         # 取消心跳任务
+#         if 'heartbeat_task' in locals():
+#             heartbeat_task.cancel()
+#             try:
+#                 await heartbeat_task
+#             except asyncio.CancelledError:
+#                 pass
         
-        # 清理连接
-        ws_manager.disconnect(websocket, task_id)
-        logger.info(f"WebSocket连接已清理: task_id={task_id}")
+#         # 清理连接
+#         ws_manager.disconnect(websocket, task_id)
+#         logger.info(f"WebSocket连接已清理: task_id={task_id}")
