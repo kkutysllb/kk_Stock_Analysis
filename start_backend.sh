@@ -7,21 +7,46 @@
 
 set -e  # 遇到错误立即退出
 
-# 颜色定义
+# =============================================================================
+# 🌍 全局项目路径配置
+# =============================================================================
+# 支持通过环境变量覆盖默认配置，提高脚本灵活性
+
+# 获取脚本所在目录（脚本在项目根目录）
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT_DIR="$SCRIPT_DIR"
+
+# 全局路径配置（可通过环境变量KK_PROJECT_ROOT覆盖）
+export KK_PROJECT_ROOT="${KK_PROJECT_ROOT:-$PROJECT_ROOT_DIR}"
+export KK_BACKEND_DIR="${KK_BACKEND_DIR:-$KK_PROJECT_ROOT/kk_stock_backend}"
+export KK_FRONTEND_DIR="${KK_FRONTEND_DIR:-$KK_PROJECT_ROOT/kk_stock_desktop}"
+
+# 验证项目目录结构
+if [ ! -d "$KK_BACKEND_DIR" ]; then
+    echo "❌ 错误：后端目录不存在 - $KK_BACKEND_DIR"
+    echo "💡 请设置环境变量 KK_PROJECT_ROOT 指向正确的项目根目录"
+    exit 1
+fi
+
+# =============================================================================
+# 📋 项目配置（基于全局路径）
+# =============================================================================
+PROJECT_NAME="kk_stock量化分析后端"
+CONDA_ENV_NAME="kk_stock"
+PYTHON_VERSION="3.11"
+PROJECT_DIR="$KK_BACKEND_DIR"
+MAIN_FILE="api/main.py"
+DEFAULT_HOST="0.0.0.0"
+DEFAULT_PORT="9001"
+
+# =============================================================================
+# 🎨 颜色定义
+# =============================================================================
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
-
-# 项目配置
-PROJECT_NAME="kk_stock量化分析后端"
-CONDA_ENV_NAME="kk_stock"
-PYTHON_VERSION="3.11"
-PROJECT_DIR="/Users/libing/kk_Projects/kk_Stock/kk_Stock_Analysis/kk_stock_backend"
-MAIN_FILE="api/main.py"
-DEFAULT_HOST="0.0.0.0"
-DEFAULT_PORT="9001"
 
 # 生产环境配置
 DEFAULT_WORKERS="4"                    # 默认worker数量
@@ -270,8 +295,19 @@ restart_service() {
     log_info "重启服务..."
     stop_daemon_service
     sleep 2
+    
+    # 直接启动后台服务，而不是调用main函数
     RUN_IN_BACKGROUND=true
-    main "--daemon"
+    
+    # 执行启动前的检查
+    check_conda
+    check_conda_env
+    activate_conda_env
+    check_project_files
+    check_env_config
+    
+    # 启动后台服务
+    start_backend_service
 }
 
 # 后台启动服务
@@ -426,10 +462,19 @@ main() {
                 clean_old_logs
                 exit 0
                 ;;
+            --debug-paths)
+                export DEBUG_PATHS=true
+                shift
+                ;;
             --help|-h)
                 echo "🚀 $PROJECT_NAME 启动脚本"
                 echo ""
                 echo "用法: $0 [选项|命令]"
+                echo ""
+                echo "🌍 全局路径配置:"
+                echo "  项目根目录: $KK_PROJECT_ROOT"
+                echo "  后端目录: $KK_BACKEND_DIR"
+                echo "  工作目录: $PROJECT_DIR"
                 echo ""
                 echo "📋 启动选项:"
                 echo "  --host HOST        设置服务主机地址 (默认: $DEFAULT_HOST)"
@@ -439,6 +484,7 @@ main() {
                 echo "  --daemon, -d       后台运行模式"
                 echo "  --update-deps      强制更新依赖包"
                 echo "  --clean-logs       清理7天前的启动日志"
+                echo "  --debug-paths      显示路径配置调试信息"
                 echo "  --help, -h         显示此帮助信息"
                 echo ""
                 echo "🔧 服务管理命令:"
@@ -453,8 +499,15 @@ main() {
                 echo "  logs --daemon      查看最新后台日志（实时跟踪）"
                 echo "  list-logs          列出所有启动日志文件"
                 echo ""
-                echo "📁 日志文件位置: $LOG_DIR/"
-                echo "📁 PID文件位置: $PID_FILE"
+                echo "📁 当前路径配置:"
+                init_basic_config > /dev/null 2>&1
+                echo "  日志目录: $LOG_DIR/"
+                echo "  PID文件: $PID_FILE"
+                echo ""
+                echo "🔧 环境变量配置:"
+                echo "  KK_PROJECT_ROOT    覆盖项目根目录路径"
+                echo "  KK_BACKEND_DIR     覆盖后端目录路径"
+                echo "  DEBUG_PATHS=true   启用路径调试信息"
                 echo ""
                 echo "💡 使用示例:"
                 echo "  $0                         # 前台启动服务(4个worker)"
@@ -464,6 +517,9 @@ main() {
                 echo "  $0 stop                    # 停止后台服务"
                 echo "  $0 status                  # 查看服务状态"
                 echo "  $0 logs --daemon           # 查看后台日志"
+                echo ""
+                echo "  # 自定义项目路径:"
+                echo "  KK_PROJECT_ROOT=/custom/path $0 --daemon"
                 exit 0
                 ;;
             *)
@@ -536,44 +592,54 @@ list_logs() {
 # 信号处理（优雅关闭）
 trap 'log_info "正在关闭服务..."; echo "$(date "+%Y-%m-%d %H:%M:%S") [SYSTEM] 服务已停止" >> "$STARTUP_LOG_FILE" 2>/dev/null; exit 0' INT TERM
 
-# 检查特殊命令参数（增强版本）
+# 初始化基本配置函数
+init_basic_config() {
+    # 使用全局项目路径配置
+    PID_FILE="$PROJECT_DIR/kk_stock_backend.pid"  
+    LOG_DIR="$PROJECT_DIR/logs"
+    API_HOST="${API_HOST:-$DEFAULT_HOST}"
+    API_PORT="${API_PORT:-$DEFAULT_PORT}"
+    DAEMON_LOG_FILE="$LOG_DIR/daemon_$(date +%Y%m%d).log"
+    STARTUP_LOG_FILE="$LOG_DIR/startup_$(date +%Y%m%d_%H%M%S).log"
+    
+    # 确保日志目录存在
+    mkdir -p "$LOG_DIR"
+    
+    # 显示当前使用的路径配置（调试信息）
+    if [ "${DEBUG_PATHS:-false}" = "true" ]; then
+        echo "🔍 路径配置调试信息:"
+        echo "  项目根目录: $KK_PROJECT_ROOT"
+        echo "  后端目录: $KK_BACKEND_DIR" 
+        echo "  当前工作目录: $PROJECT_DIR"
+        echo "  PID文件: $PID_FILE"
+        echo "  日志目录: $LOG_DIR"
+    fi
+}
+
+# 检查特殊命令参数（修复版本）
 if [ "$1" = "logs" ]; then
     # 初始化日志配置（但不创建新日志文件）
-    LOG_DIR="$PROJECT_DIR/logs"
+    init_basic_config
     show_latest_log "$2"
     exit 0
 elif [ "$1" = "list-logs" ]; then
-    LOG_DIR="$PROJECT_DIR/logs"
+    init_basic_config
     list_logs
     exit 0
 elif [ "$1" = "status" ]; then
     # 初始化基本配置
-    PROJECT_DIR="$PROJECT_DIR"
-    PID_FILE="$PROJECT_DIR/kk_stock_backend.pid"
-    API_HOST="${API_HOST:-$DEFAULT_HOST}"
-    API_PORT="${API_PORT:-$DEFAULT_PORT}"
-    LOG_DIR="$PROJECT_DIR/logs"
-    DAEMON_LOG_FILE="$LOG_DIR/daemon_$(date +%Y%m%d).log"
+    init_basic_config
     show_service_status
     exit 0
 elif [ "$1" = "stop" ]; then
-    # 初始化基本配置
-    PROJECT_DIR="$PROJECT_DIR"
-    PID_FILE="$PROJECT_DIR/kk_stock_backend.pid"
-    LOG_DIR="$PROJECT_DIR/logs"
-    STARTUP_LOG_FILE="$LOG_DIR/startup_$(date +%Y%m%d_%H%M%S).log"
+    # 初始化基本配置和日志
+    init_basic_config
     init_logging
     stop_daemon_service
     exit 0
 elif [ "$1" = "restart" ]; then
-    # 初始化基本配置
-    PROJECT_DIR="$PROJECT_DIR"
-    PID_FILE="$PROJECT_DIR/kk_stock_backend.pid"
-    LOG_DIR="$PROJECT_DIR/logs"
-    STARTUP_LOG_FILE="$LOG_DIR/startup_$(date +%Y%m%d_%H%M%S).log"
-    API_HOST="${API_HOST:-$DEFAULT_HOST}"
-    API_PORT="${API_PORT:-$DEFAULT_PORT}"
-    DAEMON_LOG_FILE="$LOG_DIR/daemon_$(date +%Y%m%d).log"
+    # 初始化基本配置和日志
+    init_basic_config
     init_logging
     restart_service
     exit 0

@@ -7,7 +7,40 @@
 
 set -e  # 遇到错误立即退出
 
-# 颜色定义
+# =============================================================================
+# 🌍 全局项目路径配置
+# =============================================================================
+# 支持通过环境变量覆盖默认配置，提高脚本灵活性
+
+# 获取脚本所在目录（脚本在项目根目录）
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT_DIR="$SCRIPT_DIR"
+
+# 全局路径配置（可通过环境变量KK_PROJECT_ROOT覆盖）
+export KK_PROJECT_ROOT="${KK_PROJECT_ROOT:-$PROJECT_ROOT_DIR}"
+export KK_BACKEND_DIR="${KK_BACKEND_DIR:-$KK_PROJECT_ROOT/kk_stock_backend}"
+export KK_FRONTEND_DIR="${KK_FRONTEND_DIR:-$KK_PROJECT_ROOT/kk_stock_desktop}"
+
+# 验证项目目录结构
+if [ ! -d "$KK_FRONTEND_DIR" ]; then
+    echo "❌ 错误：前端目录不存在 - $KK_FRONTEND_DIR"
+    echo "💡 请设置环境变量 KK_PROJECT_ROOT 指向正确的项目根目录"
+    exit 1
+fi
+
+# =============================================================================
+# 📋 项目配置（基于全局路径）
+# =============================================================================
+PROJECT_NAME="KK股票分析系统前端"
+PROJECT_DIR="$KK_FRONTEND_DIR"
+MAIN_PACKAGE_FILE="package.json"
+NODE_MIN_VERSION="18.0.0"
+FRONTEND_DEV_PORT="5173"
+BACKEND_API_URL="http://127.0.0.1:9001"
+
+# =============================================================================
+# 🎨 颜色定义
+# =============================================================================
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -15,14 +48,6 @@ BLUE='\033[0;34m'
 PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
-
-# 项目配置
-PROJECT_NAME="KK股票分析系统前端"
-PROJECT_DIR="/Users/libing/kk_Projects/kk_Stock/kk_Stock_Analysis/kk_stock_desktop"
-MAIN_PACKAGE_FILE="package.json"
-NODE_MIN_VERSION="18.0.0"
-FRONTEND_DEV_PORT="5173"
-BACKEND_API_URL="http://127.0.0.1:9001"
 
 # 运行模式配置
 DEFAULT_MODE="web"           # web | electron | build
@@ -610,6 +635,8 @@ show_latest_log() {
 
 # 主执行流程
 main() {
+    # 初始化基本配置
+    init_basic_config
     # 初始化日志系统
     init_logging
     
@@ -645,10 +672,20 @@ main() {
                 clean_old_logs
                 exit 0
                 ;;
+            --debug-paths)
+                export DEBUG_PATHS=true
+                shift
+                ;;
             --help|-h)
                 echo "🚀 $PROJECT_NAME 启动脚本"
                 echo ""
                 echo "用法: $0 [选项|命令]"
+                echo ""
+                echo "🌍 全局路径配置:"
+                echo "  项目根目录: $KK_PROJECT_ROOT"
+                echo "  前端目录: $KK_FRONTEND_DIR"
+                echo "  后端目录: $KK_BACKEND_DIR"
+                echo "  工作目录: $PROJECT_DIR"
                 echo ""
                 echo "📋 启动选项:"
                 echo "  --mode, -m MODE     设置运行模式 (web|electron|build) (默认: web)"
@@ -658,6 +695,7 @@ main() {
                 echo "  --daemon, -d        后台运行模式"
                 echo "  --manager PKG       指定包管理器 (npm|yarn|pnpm)"
                 echo "  --clean-logs        清理7天前的日志文件"
+                echo "  --debug-paths       显示路径配置调试信息"
                 echo "  --help, -h          显示此帮助信息"
                 echo ""
                 echo "🔧 服务管理命令:"
@@ -671,6 +709,18 @@ main() {
                 echo "📝 日志命令:"
                 echo "  logs [type]         查看日志 (web|electron|startup)"
                 echo ""
+                echo "📁 当前路径配置:"
+                init_basic_config > /dev/null 2>&1
+                echo "  日志目录: $LOG_DIR/"
+                echo "  Web PID文件: $WEB_PID_FILE"
+                echo "  Electron PID文件: $ELECTRON_PID_FILE"
+                echo ""
+                echo "🔧 环境变量配置:"
+                echo "  KK_PROJECT_ROOT     覆盖项目根目录路径"
+                echo "  KK_FRONTEND_DIR     覆盖前端目录路径"
+                echo "  KK_BACKEND_DIR      覆盖后端目录路径"
+                echo "  DEBUG_PATHS=true    启用路径调试信息"
+                echo ""
                 echo "💡 使用示例:"
                 echo "  $0 dev                      # 启动Web开发服务器"
                 echo "  $0 electron                 # 启动Electron开发模式"
@@ -678,6 +728,9 @@ main() {
                 echo "  $0 build mac                # 构建macOS版本"
                 echo "  $0 --port 3000 dev         # 使用3000端口启动"
                 echo "  $0 status                   # 查看服务状态"
+                echo ""
+                echo "  # 自定义项目路径:"
+                echo "  KK_PROJECT_ROOT=/custom/path $0 dev"
                 exit 0
                 ;;
             *)
@@ -725,6 +778,31 @@ main() {
     esac
 }
 
+# 初始化基本配置函数
+init_basic_config() {
+    # 使用全局项目路径配置
+    WEB_PID_FILE="$PROJECT_DIR/web_dev.pid"
+    ELECTRON_PID_FILE="$PROJECT_DIR/electron_dev.pid"
+    LOG_DIR="$PROJECT_DIR/logs"
+    STARTUP_LOG_FILE="$LOG_DIR/startup_$(date +%Y%m%d_%H%M%S).log"
+    WEB_LOG_FILE="$LOG_DIR/web_dev_$(date +%Y%m%d).log"
+    ELECTRON_LOG_FILE="$LOG_DIR/electron_dev_$(date +%Y%m%d).log"
+    
+    # 确保日志目录存在
+    mkdir -p "$LOG_DIR"
+    
+    # 显示当前使用的路径配置（调试信息）
+    if [ "${DEBUG_PATHS:-false}" = "true" ]; then
+        echo "🔍 路径配置调试信息:"
+        echo "  项目根目录: $KK_PROJECT_ROOT"
+        echo "  前端目录: $KK_FRONTEND_DIR"
+        echo "  当前工作目录: $PROJECT_DIR"
+        echo "  Web PID文件: $WEB_PID_FILE"
+        echo "  Electron PID文件: $ELECTRON_PID_FILE"
+        echo "  日志目录: $LOG_DIR"
+    fi
+}
+
 # 信号处理（优雅关闭）
 trap 'log_info "正在关闭前端服务..."; stop_all_services; echo "$(date "+%Y-%m-%d %H:%M:%S") [SYSTEM] 前端服务已停止" >> "$STARTUP_LOG_FILE" 2>/dev/null; exit 0' INT TERM
 
@@ -749,31 +827,19 @@ elif [ "$1" = "build" ]; then
     exit 0
 elif [ "$1" = "stop" ]; then
     # 初始化基本配置
-    PROJECT_DIR="/Users/libing/kk_Projects/kk_Stock/kk_Stock_Analysis/kk_stock_desktop"
-    LOG_DIR="$PROJECT_DIR/logs"
-    WEB_PID_FILE="$PROJECT_DIR/web_dev.pid"
-    ELECTRON_PID_FILE="$PROJECT_DIR/electron_dev.pid"
-    STARTUP_LOG_FILE="$LOG_DIR/startup_$(date +%Y%m%d_%H%M%S).log"
+    init_basic_config
     init_logging
     stop_all_services
     exit 0
 elif [ "$1" = "status" ]; then
     # 初始化基本配置
-    PROJECT_DIR="/Users/libing/kk_Projects/kk_Stock/kk_Stock_Analysis/kk_stock_desktop"
-    LOG_DIR="$PROJECT_DIR/logs"
-    WEB_PID_FILE="$PROJECT_DIR/web_dev.pid"
-    ELECTRON_PID_FILE="$PROJECT_DIR/electron_dev.pid"
-    STARTUP_LOG_FILE="$LOG_DIR/startup_$(date +%Y%m%d_%H%M%S).log"
+    init_basic_config
     init_logging
     check_service_status
     exit 0
 elif [ "$1" = "restart" ]; then
     # 初始化基本配置
-    PROJECT_DIR="/Users/libing/kk_Projects/kk_Stock/kk_Stock_Analysis/kk_stock_desktop"
-    LOG_DIR="$PROJECT_DIR/logs"
-    WEB_PID_FILE="$PROJECT_DIR/web_dev.pid"
-    ELECTRON_PID_FILE="$PROJECT_DIR/electron_dev.pid"
-    STARTUP_LOG_FILE="$LOG_DIR/startup_$(date +%Y%m%d_%H%M%S).log"
+    init_basic_config
     init_logging
     log_info "重启所有前端服务..."
     stop_all_services
@@ -784,8 +850,7 @@ elif [ "$1" = "restart" ]; then
     exit 0
 elif [ "$1" = "logs" ]; then
     # 初始化日志配置
-    PROJECT_DIR="/Users/libing/kk_Projects/kk_Stock/kk_Stock_Analysis/kk_stock_desktop"
-    LOG_DIR="$PROJECT_DIR/logs"
+    init_basic_config
     show_latest_log "$2"
     exit 0
 fi

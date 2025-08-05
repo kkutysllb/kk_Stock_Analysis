@@ -32,7 +32,7 @@ from .high_dividend_adapter import HighDividendAdapter
 from .technical_breakthrough_adapter import TechnicalBreakthroughAdapter
 from .oversold_rebound_adapter import OversoldReboundAdapter
 from .limit_up_leader_adapter import LimitUpLeaderAdapter
-from .kk_stock_backend.backtrader_strategies.strategy_adapters.fund_flow_tracking_adapter import FundFlowTrackingAdapter
+from .fund_flow_tracking_adapter import FundFlowTrackingAdapter
 
 # 策略适配器注册表
 STRATEGY_ADAPTERS = {

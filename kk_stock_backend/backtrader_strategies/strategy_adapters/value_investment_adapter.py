@@ -18,9 +18,19 @@ from datetime import datetime
 import asyncio
 
 # 添加项目根目录到路径
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+current_dir = os.path.dirname(os.path.abspath(__file__))
+backend_root = os.path.dirname(os.path.dirname(current_dir))  # 到 kk_stock_backend
+if backend_root not in sys.path:
+    sys.path.insert(0, backend_root)
 
-from api.global_db import get_global_db_handler
+try:
+    from api.global_db import get_global_db_handler
+except ImportError as e:
+    print(f"❌ 无法导入数据库处理器: {e}")
+    print(f"当前路径: {current_dir}")
+    print(f"后端根目录: {backend_root}")
+    print(f"Python路径: {sys.path[:3]}...")
+    raise ImportError("无法导入全局数据库处理器，请检查项目路径配置")
 
 
 class ValueInvestmentAdapter:
