@@ -53,6 +53,10 @@ class PortfolioManager:
         self.stop_loss_pct = 0.06  # 止损比例6%
         self.take_profit_pct = 0.12  # 止盈比例12%
         self.max_drawdown_limit = 0.20  # 最大回撤限制20%
+        self.min_holding_trading_days = 0  # 最小持仓交易日天数（默认0天，即无限制）
+        
+        # 交易日历缓存
+        self.trading_dates_cache = []  # 用于计算交易日持仓天数
         
         # 统计变量
         self.max_portfolio_value = initial_cash
@@ -81,6 +85,8 @@ class PortfolioManager:
             self.take_profit_pct = config['take_profit_pct']
         if 'max_drawdown_limit' in config:
             self.max_drawdown_limit = config['max_drawdown_limit']
+        if 'min_holding_trading_days' in config:
+            self.min_holding_trading_days = config['min_holding_trading_days']
             
         self.logger.info(f"组合配置已更新: {config}")
     
@@ -253,12 +259,13 @@ class PortfolioManager:
         
         return snapshot
     
-    def check_risk_limits(self, market_data: Dict[str, Dict]) -> List[Tuple[str, str]]:
+    def check_risk_limits(self, market_data: Dict[str, Dict], current_date: str = None) -> List[Tuple[str, str]]:
         """
         检查风险限制
         
         Args:
             market_data: 市场数据
+            current_date: 当前日期（用于计算持仓天数）
             
         Returns:
             违反风险限制的股票列表 [(stock_code, reason)]
@@ -266,13 +273,30 @@ class PortfolioManager:
         violations = []
         total_value = self.get_total_value()
         
+        # 更新交易日历缓存
+        if current_date and current_date not in self.trading_dates_cache:
+            self.trading_dates_cache.append(current_date)
+        
         for stock_code, position in self.positions.items():
             if stock_code not in market_data:
                 continue
             
             current_price = market_data[stock_code]['close']
             
-            # 检查止损
+            # 检查最小持仓天数
+            if self.min_holding_trading_days > 0 and current_date:
+                holding_days = self._calculate_holding_trading_days(position, current_date)
+                
+                if holding_days < self.min_holding_trading_days:
+                    # 检查是否为严重亏损（可以提前止损）
+                    if position.avg_price > 0:
+                        pnl_pct = (current_price - position.avg_price) / position.avg_price
+                        if pnl_pct <= -self.stop_loss_pct * 1.5:  # 亏损超过1.5倍止损线才允许提前卖出
+                            violations.append((stock_code, f"严重亏损提前止损: {pnl_pct:.2%} (持仓{holding_days}个交易日)"))
+                    # 其他情况不允许卖出（跳过后续风控检查）
+                    continue
+            
+            # 检查止损止盈
             if position.avg_price > 0:
                 pnl_pct = (current_price - position.avg_price) / position.avg_price
                 
@@ -293,6 +317,42 @@ class PortfolioManager:
             violations.append(("PORTFOLIO", f"超过最大回撤限制: {self.max_drawdown:.2%}"))
         
         return violations
+    
+    def _calculate_holding_trading_days(self, position: Position, current_date: str) -> int:
+        """
+        计算持仓交易日天数
+        
+        Args:
+            position: 持仓对象
+            current_date: 当前日期
+            
+        Returns:
+            持仓交易日天数
+        """
+        try:
+            entry_date = position.entry_date.strftime('%Y-%m-%d') if hasattr(position.entry_date, 'strftime') else str(position.entry_date)
+            
+            # 确保当前日期在缓存中
+            if current_date not in self.trading_dates_cache:
+                self.trading_dates_cache.append(current_date)
+            
+            # 使用交易日历计算
+            try:
+                entry_index = self.trading_dates_cache.index(entry_date)
+                current_index = self.trading_dates_cache.index(current_date)
+                return max(0, current_index - entry_index)
+            except ValueError:
+                # 如果日期不在缓存中，使用自然日粗略估算
+                from datetime import datetime
+                entry_dt = datetime.strptime(entry_date, '%Y-%m-%d')
+                current_dt = datetime.strptime(current_date, '%Y-%m-%d')
+                total_days = (current_dt - entry_dt).days
+                # 粗略估算：5个工作日约等于7个自然日
+                return max(0, int(total_days * 5 / 7))
+                
+        except Exception as e:
+            self.logger.warning(f"计算持仓天数失败: {e}")
+            return 0
     
     def calculate_position_size(self, 
                                stock_code: str, 

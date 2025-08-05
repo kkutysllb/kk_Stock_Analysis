@@ -315,6 +315,7 @@ class RiskConfig(BaseModel):
     stop_loss_pct: float = Field(default=0.1, description="止损百分比")
     take_profit_pct: float = Field(default=0.15, description="止盈百分比")
     max_drawdown_limit: float = Field(default=0.2, description="最大回撤限制")
+    min_holding_trading_days: int = Field(default=0, description="最小持仓交易日天数")
 
 class MultiTrendParams(BaseModel):
     """多趋势共振策略参数"""
@@ -519,12 +520,28 @@ def create_strategy_config(config: BacktestConfig):
         strategy_config.backtest.min_commission = min_commission
         strategy_config.backtest.slippage_rate = slippage_rate
         
+        # 应用策略特定的默认风险配置
+        risk_config = config.risk_config
+        if config.strategy_type == 'multi_trend':
+            # 太上老君1号策略的默认配置
+            if risk_config.max_positions == 10:  # 如果是默认值
+                risk_config.max_positions = 8
+            if risk_config.max_single_position == 0.1:  # 如果是默认值
+                risk_config.max_single_position = 0.12
+            if risk_config.stop_loss_pct == 0.1:  # 如果是默认值
+                risk_config.stop_loss_pct = 0.05
+            if risk_config.take_profit_pct == 0.15:  # 如果是默认值
+                risk_config.take_profit_pct = 0.15
+            if risk_config.min_holding_trading_days == 0:  # 如果是默认值
+                risk_config.min_holding_trading_days = 5
+        
         # 设置风险配置
-        strategy_config.strategy.max_positions = config.risk_config.max_positions
-        strategy_config.strategy.max_single_position = config.risk_config.max_single_position
-        strategy_config.strategy.stop_loss_pct = config.risk_config.stop_loss_pct
-        strategy_config.strategy.take_profit_pct = config.risk_config.take_profit_pct
-        strategy_config.strategy.max_drawdown_limit = config.risk_config.max_drawdown_limit
+        strategy_config.strategy.max_positions = risk_config.max_positions
+        strategy_config.strategy.max_single_position = risk_config.max_single_position
+        strategy_config.strategy.stop_loss_pct = risk_config.stop_loss_pct
+        strategy_config.strategy.take_profit_pct = risk_config.take_profit_pct
+        strategy_config.strategy.max_drawdown_limit = risk_config.max_drawdown_limit
+        strategy_config.strategy.min_holding_trading_days = risk_config.min_holding_trading_days
         
         return strategy_config
         
@@ -546,13 +563,32 @@ def create_strategy_config(config: BacktestConfig):
                 'min_commission': config.min_commission if config.min_commission is not None else (config.trading_config.min_commission if config.trading_config else 5.0),
                 'slippage_rate': config.slippage_rate if config.slippage_rate is not None else 0.001
             },
-            'strategy': {
-                'max_positions': config.risk_config.max_positions,
-                'max_single_position': config.risk_config.max_single_position,
-                'stop_loss_pct': config.risk_config.stop_loss_pct,
-                'take_profit_pct': config.risk_config.take_profit_pct,
-                'max_drawdown_limit': config.risk_config.max_drawdown_limit
-            }
+            'strategy': {}
+        }
+        
+        # 应用策略特定的默认风险配置
+        risk_config = config.risk_config
+        if config.strategy_type == 'multi_trend':
+            # 太上老君1号策略的默认配置
+            if risk_config.max_positions == 10:  # 如果是默认值
+                risk_config.max_positions = 8
+            if risk_config.max_single_position == 0.1:  # 如果是默认值
+                risk_config.max_single_position = 0.12
+            if risk_config.stop_loss_pct == 0.1:  # 如果是默认值
+                risk_config.stop_loss_pct = 0.05
+            if risk_config.take_profit_pct == 0.15:  # 如果是默认值
+                risk_config.take_profit_pct = 0.15
+            if risk_config.min_holding_trading_days == 0:  # 如果是默认值
+                risk_config.min_holding_trading_days = 5
+        
+        # 设置风险配置到字典
+        strategy_config['strategy'] = {
+            'max_positions': risk_config.max_positions,
+            'max_single_position': risk_config.max_single_position,
+            'stop_loss_pct': risk_config.stop_loss_pct,
+            'take_profit_pct': risk_config.take_profit_pct,
+            'max_drawdown_limit': risk_config.max_drawdown_limit,
+            'min_holding_trading_days': risk_config.min_holding_trading_days
         }
     
         # 添加策略特定参数到字典版本
@@ -1133,7 +1169,8 @@ async def get_config_templates():
                 "max_single_position": 0.08,
                 "stop_loss_pct": 0.08,
                 "take_profit_pct": 0.12,
-                "max_drawdown_limit": 0.15
+                "max_drawdown_limit": 0.15,
+                "min_holding_trading_days": 3
             }
         },
         "balanced": {
@@ -1143,7 +1180,8 @@ async def get_config_templates():
                 "max_single_position": 0.1,
                 "stop_loss_pct": 0.1,
                 "take_profit_pct": 0.15,
-                "max_drawdown_limit": 0.2
+                "max_drawdown_limit": 0.2,
+                "min_holding_trading_days": 5
             }
         },
         "aggressive": {
@@ -1153,7 +1191,8 @@ async def get_config_templates():
                 "max_single_position": 0.15,
                 "stop_loss_pct": 0.12,
                 "take_profit_pct": 0.2,
-                "max_drawdown_limit": 0.25
+                "max_drawdown_limit": 0.25,
+                "min_holding_trading_days": 7
             }
         }
     }

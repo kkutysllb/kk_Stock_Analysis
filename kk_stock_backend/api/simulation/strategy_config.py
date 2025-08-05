@@ -41,9 +41,10 @@ class StrategyConfigManager:
                 max_single_weight=0.12,
                 rebalance_frequency='daily',  # 每日检查
                 risk_control={
-                    'stop_loss': 0.06,      # 6%止损
-                    'take_profit': 0.12,    # 12%止盈
-                    'min_resonance_score': 6  # 最小共振得分
+                    'stop_loss': 0.05,      # 5%止损 (修改后的参数)
+                    'take_profit': 0.35,    # 35%止盈 (修改后的参数)
+                    'min_resonance_score': 6,  # 最小共振得分
+                    'min_holding_trading_days': 5  # 最小持仓5个交易日 (新增)
                 },
                 default_allocated_cash=300000
             ),

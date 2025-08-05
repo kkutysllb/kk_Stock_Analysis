@@ -79,7 +79,7 @@ class DatabaseConfig:
                 'ema90': 'ema_bfq_90',
                 'ema250': 'ema_bfq_250',
                 
-                # RSI指标
+                # 多周期RSI指标  
                 'rsi6': 'rsi_bfq_6',
                 'rsi12': 'rsi_bfq_12',
                 'rsi24': 'rsi_bfq_24',
@@ -100,8 +100,9 @@ class DatabaseConfig:
                 'kdj_j': 'kdj_bfq',
                 
                 # 威廉指标
-                'wr1': 'wr1_bfq',
-                'wr2': 'wr_bfq',
+                'wr': 'wr_bfq',       # 统一使用wr
+                'wr1': 'wr1_bfq',     # 保留兼容性
+                'wr2': 'wr_bfq',      # 保留兼容性
                 
                 # 其他技术指标
                 'bias1': 'bias1_bfq',

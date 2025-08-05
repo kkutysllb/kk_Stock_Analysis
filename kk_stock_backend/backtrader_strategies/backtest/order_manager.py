@@ -83,6 +83,15 @@ class OrderManager:
         Returns:
             订单ID
         """
+        # 检查是否存在重复的待处理订单（同一股票、同一类型、同一数量）
+        for existing_order in self.pending_orders.values():
+            if (existing_order.stock_code == stock_code and 
+                existing_order.order_type == order_type and
+                existing_order.quantity == quantity and
+                abs(existing_order.price - price) < 0.01):  # 价格差异小于0.01认为是重复
+                self.logger.warning(f"检测到重复订单，跳过创建: {stock_code} {order_type.value} {quantity}股")
+                return existing_order.order_id
+        
         order_id = str(uuid.uuid4())[:8]
         
         order = Order(

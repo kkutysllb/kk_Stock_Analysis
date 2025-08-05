@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-好奇布偶猫BOLL择时策略适配器
-将好奇布偶猫策略适配到新的回测引擎接口，参考多趋势策略实现架构
+太上老君2号策略适配器 - BOLL择时策略
+将BOLL择时策略适配到新的回测引擎接口，专注于中证500小市值股票
 """
 
 import sys
@@ -16,12 +16,12 @@ from typing import Dict, List, Any, Optional
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backtest.backtest_engine import StrategyInterface
-from .config import Config
+from config import Config
 
 
 class CuriousRagdollBollStrategyAdapter(StrategyInterface):
     """
-    好奇布偶猫BOLL择时策略适配器
+    太上老君2号策略适配器 - BOLL择时策略
     将布林带择时策略逻辑适配到新的回测引擎接口
     """
     
@@ -65,6 +65,11 @@ class CuriousRagdollBollStrategyAdapter(StrategyInterface):
         self.buy_signals_count = 0
         self.sell_signals_count = 0
         self.boll_scores = {}                       # 布林带得分缓存
+        
+        # 新增记录功能 - 与多趋势策略保持一致
+        self.stock_selection_history = []           # 选股历史记录
+        self.position_change_history = []           # 持仓变动历史
+        self.daily_portfolio_snapshot = {}          # 每日投资组合快照
         
         # 统计信息
         self.signal_history = []
@@ -166,7 +171,15 @@ class CuriousRagdollBollStrategyAdapter(StrategyInterface):
                 buy_signals = self._check_buy_signals(current_date, market_data, portfolio_info)
                 signals.extend(buy_signals)
             
-            # 3. 记录信号历史
+            # 3. 记录选股历史
+            candidate_stocks = self._get_candidate_stocks(market_data)
+            if candidate_stocks or current_date.endswith(('01', '11', '21')):  # 有候选股票或定期记录
+                self._record_stock_selection(current_date, candidate_stocks[:10], market_data)
+            
+            # 4. 记录每日快照
+            self._record_daily_snapshot(current_date, portfolio_info)
+            
+            # 5. 记录信号历史
             if signals:
                 self.signal_history.append({
                     'date': current_date,
@@ -175,7 +188,7 @@ class CuriousRagdollBollStrategyAdapter(StrategyInterface):
                     'sell_count': len([s for s in signals if s['action'] == 'sell'])
                 })
             
-            # 4. 定期输出进度
+            # 6. 定期输出进度
             if current_date.endswith(('01', '11', '21')):  # 每月几次输出
                 portfolio_value = portfolio_info.get('total_value', 0)
                 cash_ratio = portfolio_info.get('cash_ratio', 0)
@@ -211,6 +224,11 @@ class CuriousRagdollBollStrategyAdapter(StrategyInterface):
                     })
                     
                     print(f"🔴 卖出信号 {stock_code}: {reason}, 价格{market_data[stock_code]['close']:.2f}")
+                    
+                    # 记录持仓变动
+                    boll_score = self.positions_info[stock_code].get('boll_score', 0)
+                    self._record_position_change(current_date, 'sell', stock_code,
+                                               market_data[stock_code]['close'], boll_score, reason)
                     
                     # 移除持仓记录
                     del self.positions_info[stock_code]
@@ -260,13 +278,17 @@ class CuriousRagdollBollStrategyAdapter(StrategyInterface):
                     'boll_score': score
                 })
                 
-                # 记录持仓信息
+                                    # 记录持仓信息
                 self.positions_info[stock_code] = {
                     'entry_price': market_data[stock_code]['close'],
                     'entry_date': current_date,
                     'boll_score': score,
                     'stop_loss_price': self._calculate_stop_loss_price(market_data[stock_code])
                 }
+                
+                # 记录持仓变动
+                self._record_position_change(current_date, 'buy', stock_code,
+                                           market_data[stock_code]['close'], score)
                 
                 print(f"🟢 买入信号 {stock_code}: 价格{market_data[stock_code]['close']:.2f}, 布林得分{score:.1f}")
                 
@@ -495,6 +517,143 @@ class CuriousRagdollBollStrategyAdapter(StrategyInterface):
             'price': price
         })
     
+    def _record_stock_selection(self, current_date: str, candidate_stocks: List[str], market_data: Dict[str, Dict]):
+        """记录选股历史 - BOLL策略版本"""
+        try:
+            if not candidate_stocks:
+                # 如果没有候选股票，记录一条空记录
+                self.stock_selection_history.append({
+                    'date': current_date,
+                    'stock_code': '',
+                    'resonance_score': 0,
+                    'technical_score': 0,
+                    'rank': 0,
+                    'selected': False,
+                    'reason': '无符合条件的候选股票'
+                })
+                return
+            
+            # 计算候选股票的BOLL得分并排序
+            stock_scores = []
+            for stock_code in candidate_stocks:
+                stock_data = market_data.get(stock_code, {})
+                boll_score = self._calculate_boll_score(stock_code, stock_data)
+                if boll_score > 0:
+                    stock_scores.append((stock_code, boll_score))
+            
+            # 按BOLL得分排序
+            stock_scores.sort(key=lambda x: x[1], reverse=True)
+            
+            # 为每只候选股票创建记录，匹配CSV保存格式
+            for rank, (stock_code, boll_score) in enumerate(stock_scores[:15], 1):  # 记录前15只
+                # 判断是否被选中
+                is_selected = rank <= (self.params['max_positions'] - len(self.positions_info)) and rank <= len(stock_scores)
+                
+                self.stock_selection_history.append({
+                    'date': current_date,
+                    'stock_code': stock_code,
+                    'resonance_score': boll_score,  # 对于BOLL策略，将BOLL分数作为共振分数
+                    'technical_score': boll_score,
+                    'rank': rank,
+                    'selected': is_selected,
+                    'reason': f'BOLL得分{boll_score:.1f}/10分'
+                })
+            
+            # 保持历史记录在合理范围内
+            if len(self.stock_selection_history) > 150:
+                self.stock_selection_history = self.stock_selection_history[-150:]
+                
+        except Exception as e:
+            print(f"记录选股历史失败: {e}")
+    
+    def _record_position_change(self, current_date: str, action: str, stock_code: str, 
+                               price: float, boll_score: float, reason: str = ""):
+        """记录持仓变动历史 - BOLL策略版本"""
+        try:
+            self.position_change_history.append({
+                'date': current_date,
+                'action': action,
+                'stock_code': stock_code,
+                'price': price,
+                'boll_score': boll_score,
+                'reason': reason,
+                'position_count': len(self.positions_info),
+                'timestamp': current_date
+            })
+            
+            # 保持历史记录在合理范围内
+            if len(self.position_change_history) > 200:
+                self.position_change_history = self.position_change_history[-200:]
+                
+        except Exception as e:
+            print(f"记录持仓变动失败: {e}")
+    
+    def _record_daily_snapshot(self, current_date: str, portfolio_info: Dict[str, Any]):
+        """记录每日投资组合快照 - BOLL策略版本"""
+        try:
+            # 从portfolio_info中提取数据，适配不同的字段名
+            total_value = portfolio_info.get('total_value', 0) or portfolio_info.get('portfolio_value', 0)
+            cash = portfolio_info.get('cash', 0)
+            cash_ratio = portfolio_info.get('cash_ratio', 0)
+            daily_return = portfolio_info.get('daily_return', 0)
+            
+            # 计算持仓价值
+            positions_value = total_value - cash if total_value > cash else 0
+            position_count = len(self.positions_info)
+            
+            # 计算累计收益率
+            cumulative_return = 0
+            if hasattr(self, 'context') and self.context:
+                initial_cash = self.context.get('initial_cash', 1000000)
+                if initial_cash > 0 and total_value > 0:
+                    cumulative_return = (total_value - initial_cash) / initial_cash
+            
+            # 使用与回测引擎兼容的字段名
+            snapshot = {
+                'total_value': total_value,
+                'cash': cash,
+                'positions_value': positions_value,
+                'position_count': position_count,
+                'cash_ratio': cash_ratio,
+                'daily_return': daily_return,
+                'cumulative_return': cumulative_return
+            }
+            
+            self.daily_portfolio_snapshot[current_date] = snapshot
+            
+            # 保持快照数据在合理范围内（保留最近60天）
+            if len(self.daily_portfolio_snapshot) > 60:
+                dates = sorted(self.daily_portfolio_snapshot.keys())
+                for old_date in dates[:-60]:
+                    del self.daily_portfolio_snapshot[old_date]
+            
+            # 调试输出（仅在关键日期）
+            if current_date.endswith(('01', '11', '21')) and total_value > 0:
+                print(f"📊 BOLL {current_date} 快照: 总值{total_value:,.0f}, 现金{cash:,.0f}, 持仓{position_count}只")
+                    
+        except Exception as e:
+            print(f"记录每日快照失败: {e}")
+    
+    def get_selection_report(self) -> Dict[str, Any]:
+        """获取选股报告 - BOLL策略版本"""
+        try:
+            recent_selections = self.stock_selection_history[-5:] if self.stock_selection_history else []
+            recent_changes = self.position_change_history[-10:] if self.position_change_history else []
+            
+            return {
+                'recent_stock_selections': recent_selections,
+                'recent_position_changes': recent_changes,
+                'current_positions': self.positions_info,
+                'selection_summary': {
+                    'total_selections': len(self.stock_selection_history),
+                    'total_position_changes': len(self.position_change_history),
+                    'current_position_count': len(self.positions_info)
+                }
+            }
+        except Exception as e:
+            print(f"生成选股报告失败: {e}")
+            return {}
+
     def get_index_code(self) -> str:
         """获取策略使用的指数代码"""
         return "000905.SH"  # 中证500指数

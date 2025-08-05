@@ -238,7 +238,8 @@ class BacktestEngine:
             'max_positions': self.config.strategy.max_positions,
             'stop_loss_pct': abs(self.config.strategy.stop_loss_pct),
             'take_profit_pct': self.config.strategy.take_profit_pct,
-            'max_drawdown_limit': abs(self.config.strategy.max_drawdown_limit)
+            'max_drawdown_limit': abs(self.config.strategy.max_drawdown_limit),
+            'min_holding_trading_days': getattr(self.config.strategy, 'min_holding_trading_days', 0)
         })
         
         try:
@@ -288,7 +289,7 @@ class BacktestEngine:
         self.portfolio_manager.update_positions_value(daily_market_data, trade_date)
         
         # 3. 检查风险控制
-        risk_violations = self.portfolio_manager.check_risk_limits(daily_market_data)
+        risk_violations = self.portfolio_manager.check_risk_limits(daily_market_data, trade_date)
         
         # 4. 处理风险违规（强制平仓）
         forced_sells = set()  # 记录强制卖出的股票，避免重复
@@ -311,8 +312,12 @@ class BacktestEngine:
         portfolio_info = self.portfolio_manager.get_portfolio_summary()
         signals = self.strategy.generate_signals(trade_date, daily_market_data, portfolio_info)
         
-        # 6. 处理策略信号
+        # 6. 处理策略信号（避免与风险控制重复）
         for signal in signals:
+            # 检查是否与风险控制冲突
+            if signal['action'].lower() == 'sell' and signal['stock_code'] in forced_sells:
+                self.logger.debug(f"跳过重复卖出信号: {signal['stock_code']} (已被风险控制处理)")
+                continue
             self._process_signal(signal, trade_date)
         
         # 7. 执行所有待处理订单
@@ -470,8 +475,10 @@ class BacktestEngine:
         portfolio_history = self.portfolio_manager.portfolio_history
         trades_df = self.order_manager.get_trades_dataframe()
         
-        # 生成绩效报告 - 优先使用配置中的策略名称
-        strategy_name = getattr(self.config, 'strategy_name', None) or self.strategy.__class__.__name__ if self.strategy else "策略"
+        # 生成绩效报告 - 优先使用策略实例的name属性
+        strategy_name = (getattr(self.config, 'strategy_name', None) or 
+                        getattr(self.strategy, 'name', None) or 
+                        self.strategy.__class__.__name__ if self.strategy else "策略")
         performance_report = self.performance_analyzer.generate_performance_report(
             portfolio_history=portfolio_history,
             trades_df=trades_df,
@@ -508,6 +515,26 @@ class BacktestEngine:
         # 获取策略信息
         strategy_info = self.strategy.get_strategy_info() if self.strategy else {}
         
+        # 获取当前持仓信息
+        current_positions = []
+        portfolio_positions = self.portfolio_manager.get_all_positions()
+        for stock_code, position in portfolio_positions.items():
+            if position.quantity > 0:  # 只包含有持仓的股票
+                # 计算当前价格（从持仓的市值和数量推算）
+                current_price = position.market_value / position.quantity if position.quantity > 0 else position.avg_price
+                
+                position_data = {
+                    'symbol': stock_code,
+                    'name': stock_code,  # 可以后续从数据库获取股票名称
+                    'shares': position.quantity,
+                    'avg_price': position.avg_price,  # 修正属性名
+                    'current_price': current_price,
+                    'market_value': position.market_value,
+                    'unrealized_pnl': position.unrealized_pnl,
+                    'weight': position.market_value / self.portfolio_manager.get_total_value() if self.portfolio_manager.get_total_value() > 0 else 0
+                }
+                current_positions.append(position_data)
+        
         # 组装完整结果
         result = {
             'backtest_config': {
@@ -521,6 +548,7 @@ class BacktestEngine:
             'strategy_info': strategy_info,
             'performance_report': performance_report,
             'portfolio_summary': self.portfolio_manager.get_portfolio_summary(),
+            'current_positions': current_positions,
             'trading_summary': self.order_manager.get_trading_summary(),
             'chart_files': chart_files,  # 保持向后兼容
             'chart_data': chart_data  # 新增：前端图表数据
@@ -565,7 +593,146 @@ class BacktestEngine:
             portfolio_filename = os.path.join(timestamped_dir, f"{strategy_name}_portfolio.csv")
             self.portfolio_manager.export_portfolio_to_csv(portfolio_filename)
         
+        # 保存策略特有数据（选股历史、持仓变动等）
+        self._save_strategy_specific_data(strategy_name, timestamped_dir)
+        
         self.logger.info(f"回测结果已保存到: {timestamped_dir}")
+    
+    def _save_strategy_specific_data(self, strategy_name: str, timestamped_dir: str):
+        """
+        保存策略特有数据（选股历史、持仓变动、每日快照等）
+        
+        Args:
+            strategy_name: 策略名称
+            timestamped_dir: 时间戳目录路径
+        """
+        try:
+            # 检查策略是否有获取选股报告的方法
+            if hasattr(self.strategy, 'get_selection_report'):
+                selection_report = self.strategy.get_selection_report()
+                
+                # 保存选股历史
+                if hasattr(self.strategy, 'stock_selection_history') and self.strategy.stock_selection_history:
+                    self._save_stock_selection_history(strategy_name, timestamped_dir, self.strategy.stock_selection_history)
+                
+                # 保存持仓变动历史
+                if hasattr(self.strategy, 'position_change_history') and self.strategy.position_change_history:
+                    self._save_position_change_history(strategy_name, timestamped_dir, self.strategy.position_change_history)
+                
+                # 保存每日投资组合快照
+                if hasattr(self.strategy, 'daily_portfolio_snapshot') and self.strategy.daily_portfolio_snapshot:
+                    self._save_daily_portfolio_snapshot(strategy_name, timestamped_dir, self.strategy.daily_portfolio_snapshot)
+                
+                # 保存选股报告摘要
+                if selection_report:
+                    self._save_selection_report_summary(strategy_name, timestamped_dir, selection_report)
+                
+                self.logger.info(f"策略特有数据已保存完成")
+                
+        except Exception as e:
+            self.logger.warning(f"保存策略特有数据失败: {e}")
+    
+    def _save_stock_selection_history(self, strategy_name: str, timestamped_dir: str, selection_history: list):
+        """保存选股历史"""
+        try:
+            import pandas as pd
+            
+            if not selection_history:
+                return
+                
+            # 转换为DataFrame
+            df_data = []
+            for record in selection_history:
+                df_data.append({
+                    'date': record.get('date', ''),
+                    'stock_code': record.get('stock_code', ''),
+                    'resonance_score': record.get('resonance_score', 0),
+                    'technical_score': record.get('technical_score', 0),
+                    'rank': record.get('rank', 0),
+                    'selected': record.get('selected', False),
+                    'reason': record.get('reason', '')
+                })
+            
+            df = pd.DataFrame(df_data)
+            filename = os.path.join(timestamped_dir, f"{strategy_name}_stock_selection_history.csv")
+            df.to_csv(filename, index=False, encoding='utf-8-sig')
+            self.logger.info(f"选股历史已保存: {filename}")
+            
+        except Exception as e:
+            self.logger.warning(f"保存选股历史失败: {e}")
+    
+    def _save_position_change_history(self, strategy_name: str, timestamped_dir: str, position_history: list):
+        """保存持仓变动历史"""
+        try:
+            import pandas as pd
+            
+            if not position_history:
+                return
+                
+            # 转换为DataFrame
+            df_data = []
+            for record in position_history:
+                df_data.append({
+                    'date': record.get('date', ''),
+                    'action': record.get('action', ''),
+                    'stock_code': record.get('stock_code', ''),
+                    'price': record.get('price', 0),
+                    'resonance_score': record.get('resonance_score', 0),
+                    'reason': record.get('reason', ''),
+                    'portfolio_value': record.get('portfolio_value', 0)
+                })
+            
+            df = pd.DataFrame(df_data)
+            filename = os.path.join(timestamped_dir, f"{strategy_name}_position_changes.csv")
+            df.to_csv(filename, index=False, encoding='utf-8-sig')
+            self.logger.info(f"持仓变动历史已保存: {filename}")
+            
+        except Exception as e:
+            self.logger.warning(f"保存持仓变动历史失败: {e}")
+    
+    def _save_daily_portfolio_snapshot(self, strategy_name: str, timestamped_dir: str, daily_snapshots: dict):
+        """保存每日投资组合快照"""
+        try:
+            import pandas as pd
+            
+            if not daily_snapshots:
+                return
+                
+            # 转换为DataFrame
+            df_data = []
+            for date, snapshot in daily_snapshots.items():
+                df_data.append({
+                    'date': date,
+                    'total_value': snapshot.get('total_value', 0),
+                    'cash': snapshot.get('cash', 0),
+                    'positions_value': snapshot.get('positions_value', 0),
+                    'position_count': snapshot.get('position_count', 0),
+                    'cash_ratio': snapshot.get('cash_ratio', 0),
+                    'daily_return': snapshot.get('daily_return', 0),
+                    'cumulative_return': snapshot.get('cumulative_return', 0)
+                })
+            
+            df = pd.DataFrame(df_data)
+            df = df.sort_values('date')  # 按日期排序
+            filename = os.path.join(timestamped_dir, f"{strategy_name}_daily_snapshots.csv")
+            df.to_csv(filename, index=False, encoding='utf-8-sig')
+            self.logger.info(f"每日投资组合快照已保存: {filename}")
+            
+        except Exception as e:
+            self.logger.warning(f"保存每日投资组合快照失败: {e}")
+    
+    def _save_selection_report_summary(self, strategy_name: str, timestamped_dir: str, selection_report: dict):
+        """保存选股报告摘要"""
+        try:
+            import json
+            
+            filename = os.path.join(timestamped_dir, f"{strategy_name}_selection_report.json")
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(selection_report, f, ensure_ascii=False, indent=2)
+            self.logger.info(f"选股报告摘要已保存: {filename}")
+            
+        except Exception as e:
+            self.logger.warning(f"保存选股报告摘要失败: {e}")
     
     def get_current_status(self) -> Dict[str, Any]:
         """
@@ -699,6 +866,9 @@ def run_strategy_backtest(strategy: StrategyInterface,
                 
             except Exception as e:
                 logging.error(f"更新实时数据失败: {e}")
+                import traceback
+                logging.error(f"详细错误堆栈: {traceback.format_exc()}")
+                # 确保不影响回测继续执行
         
         # 设置回调函数到引擎
         engine.set_realtime_callback(update_realtime_callback)

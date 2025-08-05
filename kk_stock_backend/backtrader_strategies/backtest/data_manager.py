@@ -83,7 +83,7 @@ class DataManager:
         except Exception as e:
             self.logger.error(f"加载股票池失败: {e}")
             # 返回一些默认股票用于测试
-            self.stock_universe = ['000001.SZ', '000002.SZ', '600000.SH', '600036.SH', '000858.SZ']
+            self.stock_universe = []
             return self.stock_universe
     
     def load_stock_data(self, 
@@ -181,42 +181,47 @@ class DataManager:
             
             # 添加技术指标
             if include_indicators:
-                indicator_fields = {
-                    'ma5': field_mapping.get('ma5', 'ma_bfq_5'),
-                    'ma10': field_mapping.get('ma10', 'ma_bfq_10'),
-                    'ma20': field_mapping.get('ma20', 'ma_bfq_20'),
-                    'ma60': field_mapping.get('ma60', 'ma_bfq_60'),
-                    'ma120': field_mapping.get('ma120', 'ma_bfq_120'),
-                    'ma250': field_mapping.get('ma250', 'ma_bfq_250'),
-                    'ema5': field_mapping.get('ema5', 'ema_bfq_5'),
-                    'ema10': field_mapping.get('ema10', 'ema_bfq_10'),
-                    'ema20': field_mapping.get('ema20', 'ema_bfq_20'),
-                    'macd_dif': field_mapping.get('macd_dif', 'macd_dif_bfq'),
-                    'macd_dea': field_mapping.get('macd_dea', 'macd_dea_bfq'),
-                    'macd_macd': field_mapping.get('macd_macd', 'macd_bfq'),
-                    'kdj_k': field_mapping.get('kdj_k', 'kdj_k_bfq'),
-                    'kdj_d': field_mapping.get('kdj_d', 'kdj_d_bfq'),
-                    'kdj_j': field_mapping.get('kdj_j', 'kdj_bfq'),
-                    'rsi6': field_mapping.get('rsi6', 'rsi_bfq_6'),
-                    'rsi12': field_mapping.get('rsi12', 'rsi_bfq_12'),
-                    'rsi24': field_mapping.get('rsi24', 'rsi_bfq_24'),
-                    'boll_upper': field_mapping.get('boll_upper', 'boll_upper_bfq'),
-                    'boll_mid': field_mapping.get('boll_mid', 'boll_mid_bfq'),
-                    'boll_lower': field_mapping.get('boll_lower', 'boll_lower_bfq'),
-                    'wr1': field_mapping.get('wr1', 'wr1_bfq'),
-                    'wr2': field_mapping.get('wr2', 'wr_bfq'),
-                    'turnover_rate': field_mapping.get('turnover_rate', 'turnover_rate'),
-                    'volume_ratio': field_mapping.get('volume_ratio', 'volume_ratio'),
-                    # volume_ma20 将通过计算得出，不从数据库字段映射
-                }
+                # 需要加载的技术指标字段（标准化名称）
+                indicator_field_names = [
+                    # 多周期移动平均线
+                    'ma5', 'ma10', 'ma20', 'ma30', 'ma60', 'ma90', 'ma120', 'ma250',
+                    # EMA指标
+                    'ema5', 'ema10', 'ema20',
+                    # MACD指标
+                    'macd_dif', 'macd_dea', 'macd_macd',
+                    # KDJ指标
+                    'kdj_k', 'kdj_d', 'kdj_j',
+                    # 多周期RSI指标
+                    'rsi6', 'rsi12', 'rsi24',
+                    # 布林带指标
+                    'boll_upper', 'boll_mid', 'boll_lower',
+                    # 威廉指标
+                    'wr', 'wr1', 'wr2',  # 包含兼容性字段
+                    # 动量指标
+                    'mtm', 'roc',
+                    # 资金流指标
+                    'mfi', 'emv', 'vr',
+                    # 其他指标
+                    'cci', 'turnover_rate', 'volume_ratio',
+                    # 估值指标
+                    'pe_ttm', 'pb', 'ps_ttm', 'total_mv'
+                ]
                 
-                for target_field, source_field in indicator_fields.items():
+                # 使用field_mapping加载指标数据
+                for target_field in indicator_field_names:
                     if target_field == 'volume_ma20':
                         continue  # volume_ma20将在后面计算
-                    elif isinstance(source_field, str) and source_field in df.columns:
+                    
+                    # 从field_mapping获取实际数据库字段名
+                    source_field = field_mapping.get(target_field, target_field)
+                    
+                    if source_field in df.columns:
                         result_df[target_field] = df[source_field]
                     else:
+                        # 如果字段不存在，设为NaN并记录警告
                         result_df[target_field] = np.nan
+                        if target_field not in ['wr1', 'wr2']:  # 兼容性字段不警告
+                            self.logger.debug(f"技术指标字段 {target_field} ({source_field}) 不存在")
             
             # 数据清理 - 只对必需的价格数据做严格检查
             result_df = result_df.dropna(subset=['open', 'high', 'low', 'close', 'volume'])
@@ -224,16 +229,9 @@ class DataManager:
             # 确保数据类型正确
             numeric_columns = ['open', 'high', 'low', 'close', 'volume', 'amount', 'pre_close', 'circ_mv']
             if include_indicators:
-                numeric_columns.extend([
-                    'ma5', 'ma10', 'ma20', 'ma60', 'ma120', 'ma250',
-                    'ema5', 'ema10', 'ema20',
-                    'macd_dif', 'macd_dea', 'macd_macd',
-                    'kdj_k', 'kdj_d', 'kdj_j',
-                    'rsi6', 'rsi12', 'rsi24',
-                    'boll_upper', 'boll_mid', 'boll_lower',
-                    'wr1', 'wr2',
-                    'turnover_rate', 'volume_ratio', 'volume_ma20'
-                ])
+                # 添加所有技术指标字段
+                numeric_columns.extend(indicator_field_names)
+                numeric_columns.append('volume_ma20')  # 添加计算字段
             
             for col in numeric_columns:
                 if col in result_df.columns:

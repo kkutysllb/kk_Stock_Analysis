@@ -16,7 +16,7 @@ from typing import Dict, List, Any, Optional, Tuple
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from backtest.backtest_engine import StrategyInterface
-from .config import Config
+from config import Config
 
 
 class TaiShang3FactorStrategyAdapter(StrategyInterface):
@@ -102,6 +102,11 @@ class TaiShang3FactorStrategyAdapter(StrategyInterface):
         self.trade_history = []               # 交易历史
         self.last_rebalance_date = None       # 上次调仓日期
         
+        # 新增记录功能 - 与多趋势策略保持一致
+        self.stock_selection_history = []     # 选股历史记录
+        self.position_change_history = []     # 持仓变动历史
+        self.daily_portfolio_snapshot = {}    # 每日投资组合快照
+        
         # 因子数据缓存
         self.factor_cache = {}                # 因子数据缓存
         self.market_data_cache = {}           # 市场数据缓存
@@ -168,6 +173,10 @@ class TaiShang3FactorStrategyAdapter(StrategyInterface):
             
             # 更新调仓日期
             self.last_rebalance_date = current_dt
+            
+            # 记录选股历史和每日快照
+            self._record_stock_selection(current_date, selected_stocks, market_data)
+            self._record_daily_snapshot(current_date, portfolio_info)
             
             return signals
             
@@ -1050,18 +1059,31 @@ class TaiShang3FactorStrategyAdapter(StrategyInterface):
                     'entry_reason': trade_info.get('reason', ''),
                     'signal_type': '小市值动量选股'
                 }
+                
+                # 记录持仓变动
+                self._record_position_change(trade_info.get('date', ''), 'buy', stock_code, price, 0)
+                
                 print(f"📈 买入执行: {stock_code} @{price:.2f}元 (第{self.buy_signals_count}个买入信号)")
                 
             elif action == 'sell':
                 self.sell_signals_count += 1
                 # 计算盈亏
+                pnl_reason = ""
                 if stock_code in self.positions_info:
                     entry_price = self.positions_info[stock_code].get('entry_price', 0)
                     if entry_price > 0:
                         pnl_pct = (price - entry_price) / entry_price
+                        pnl_reason = f"盈亏{pnl_pct:.1%}"
                         print(f"📉 卖出执行: {stock_code} @{price:.2f}元, 盈亏{pnl_pct:.1%} (第{self.sell_signals_count}个卖出信号)")
+                    
+                    # 记录持仓变动
+                    sell_reason = trade_info.get('reason', pnl_reason)
+                    self._record_position_change(trade_info.get('date', ''), 'sell', stock_code, price, 0, sell_reason)
+                    
                     del self.positions_info[stock_code]
                 else:
+                    # 记录持仓变动
+                    self._record_position_change(trade_info.get('date', ''), 'sell', stock_code, price, 0, trade_info.get('reason', ''))
                     print(f"📉 卖出执行: {stock_code} @{price:.2f}元 (第{self.sell_signals_count}个卖出信号)")
             
             # 记录交易历史
@@ -1078,6 +1100,152 @@ class TaiShang3FactorStrategyAdapter(StrategyInterface):
             import traceback
             traceback.print_exc()
     
+    def _record_stock_selection(self, current_date: str, selected_stocks: List[str], market_data: Dict[str, Dict]):
+        """记录选股历史 - 多因子策略版本"""
+        try:
+            if not selected_stocks:
+                # 如果没有选股，记录一条空记录
+                self.stock_selection_history.append({
+                    'date': current_date,
+                    'stock_code': '',
+                    'resonance_score': 0,
+                    'technical_score': 0,
+                    'rank': 0,
+                    'selected': False,
+                    'reason': '无符合条件的选股(事件驱动未触发或无合格股票)'
+                })
+                return
+            
+            # 计算选中股票的综合因子得分
+            stock_scores = []
+            for stock_code in selected_stocks[:15]:  # 计算前15只
+                stock_data = market_data.get(stock_code, {})
+                comprehensive_score = self._calculate_comprehensive_score(stock_code, stock_data)
+                if comprehensive_score:
+                    stock_scores.append((stock_code, comprehensive_score))
+            
+            # 按得分排序
+            stock_scores.sort(key=lambda x: x[1], reverse=True)
+            
+            # 为每只选中股票创建记录，匹配CSV保存格式
+            for rank, (stock_code, factor_score) in enumerate(stock_scores, 1):
+                # 计算技术得分作为参考
+                stock_data = market_data.get(stock_code, {})
+                tech_score = self._calculate_technical_factor(stock_code, stock_data) or 0
+                
+                # 判断是否被选中（前max_positions只会被实际买入）
+                is_selected = rank <= self.params['max_positions']
+                
+                self.stock_selection_history.append({
+                    'date': current_date,
+                    'stock_code': stock_code,
+                    'resonance_score': factor_score,  # 多因子综合得分
+                    'technical_score': tech_score,
+                    'rank': rank,
+                    'selected': is_selected,
+                    'reason': f'多因子得分{factor_score:.3f},技术得分{tech_score:.3f},市场信号{self.market_signal}'
+                })
+            
+            # 保持历史记录在合理范围内
+            if len(self.stock_selection_history) > 150:
+                self.stock_selection_history = self.stock_selection_history[-150:]
+                
+        except Exception as e:
+            print(f"记录选股历史失败: {e}")
+    
+    def _record_position_change(self, current_date: str, action: str, stock_code: str, 
+                               price: float, factor_score: float, reason: str = ""):
+        """记录持仓变动历史 - 多因子策略版本"""
+        try:
+            self.position_change_history.append({
+                'date': current_date,
+                'action': action,
+                'stock_code': stock_code,
+                'price': price,
+                'factor_score': factor_score,
+                'reason': reason,
+                'position_count': len(self.positions_info),
+                'market_signal': self.market_signal,
+                'timestamp': current_date
+            })
+            
+            # 保持历史记录在合理范围内
+            if len(self.position_change_history) > 200:
+                self.position_change_history = self.position_change_history[-200:]
+                
+        except Exception as e:
+            print(f"记录持仓变动失败: {e}")
+    
+    def _record_daily_snapshot(self, current_date: str, portfolio_info: Dict[str, Any]):
+        """记录每日投资组合快照 - 多因子策略版本"""
+        try:
+            # 从portfolio_info中提取数据，适配不同的字段名
+            total_value = portfolio_info.get('total_value', 0) or portfolio_info.get('portfolio_value', 0)
+            cash = portfolio_info.get('cash', 0)
+            cash_ratio = portfolio_info.get('cash_ratio', 0)
+            daily_return = portfolio_info.get('daily_return', 0)
+            
+            # 计算持仓价值
+            positions_value = total_value - cash if total_value > cash else 0
+            position_count = len(self.positions_info)
+            
+            # 计算累计收益率
+            cumulative_return = 0
+            if hasattr(self, 'context') and self.context:
+                initial_cash = self.context.get('initial_cash', 1000000)
+                if initial_cash > 0 and total_value > 0:
+                    cumulative_return = (total_value - initial_cash) / initial_cash
+            
+            # 使用与回测引擎兼容的字段名
+            snapshot = {
+                'total_value': total_value,
+                'cash': cash,
+                'positions_value': positions_value,
+                'position_count': position_count,
+                'cash_ratio': cash_ratio,
+                'daily_return': daily_return,
+                'cumulative_return': cumulative_return,
+                'market_signal': self.market_signal,  # 记录市场信号
+                'selected_stocks_count': len(self.selected_stocks)  # 记录选股数量
+            }
+            
+            self.daily_portfolio_snapshot[current_date] = snapshot
+            
+            # 保持快照数据在合理范围内（保留最近60天）
+            if len(self.daily_portfolio_snapshot) > 60:
+                dates = sorted(self.daily_portfolio_snapshot.keys())
+                for old_date in dates[:-60]:
+                    del self.daily_portfolio_snapshot[old_date]
+            
+            # 调试输出（仅在关键日期）
+            if current_date.endswith(('01', '11', '21')) and total_value > 0:
+                print(f"📊 多因子 {current_date} 快照: 总值{total_value:,.0f}, 现金{cash:,.0f}, 持仓{position_count}只, 市场信号{self.market_signal}")
+                    
+        except Exception as e:
+            print(f"记录每日快照失败: {e}")
+    
+    def get_selection_report(self) -> Dict[str, Any]:
+        """获取选股报告 - 多因子策略版本"""
+        try:
+            recent_selections = self.stock_selection_history[-5:] if self.stock_selection_history else []
+            recent_changes = self.position_change_history[-10:] if self.position_change_history else []
+            
+            return {
+                'recent_stock_selections': recent_selections,
+                'recent_position_changes': recent_changes,
+                'current_positions': self.positions_info,
+                'selection_summary': {
+                    'total_selections': len(self.stock_selection_history),
+                    'total_position_changes': len(self.position_change_history),
+                    'current_position_count': len(self.positions_info),
+                    'current_market_signal': self.market_signal,
+                    'selected_stocks_count': len(self.selected_stocks)
+                }
+            }
+        except Exception as e:
+            print(f"生成选股报告失败: {e}")
+            return {}
+
     def get_strategy_info(self) -> Dict[str, Any]:
         """获取策略信息"""
         current_positions = len(self.positions_info)
