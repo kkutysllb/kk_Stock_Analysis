@@ -113,9 +113,11 @@ class TechnicalBreakthroughAdapter:
             print(f"❌ 技术突破策略选股失败: {e}")
             return {
                 'strategy_name': self.strategy_name,
+                'strategy_type': self.strategy_type,  # 添加缺失的字段
                 'error': str(e),
                 'total_count': 0,
-                'stocks': []
+                'stocks': [],
+                'timestamp': datetime.now().isoformat()
             }
     
     def _update_params(self, kwargs: Dict[str, Any]):
@@ -273,7 +275,7 @@ class TechnicalBreakthroughAdapter:
                 'close': round(result.get('close') or 0, 2),
                 'pe': round(result.get('pe') or 0, 2),
                 'pb': round(result.get('pb') or 0, 2),
-                'total_mv': round((result.get('total_mv') or 0) / 10000, 2),  # 转换为万元
+                'total_mv': round((result.get('total_mv') or 0), 0),  # 保持万元单位，前端统一转换
                 'pct_chg': round(result.get('pct_chg') or 0, 2),
                 
                 # 技术突破策略专用字段 - 使用原始字段名

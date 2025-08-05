@@ -155,7 +155,7 @@ class OversoldReboundAdapter:
                     'close': round(result.get('close') or 0, 2),
                     'pe': round(result.get('pe') or 0, 2),
                     'pb': round(result.get('pb') or 0, 2),
-                    'total_mv': round((result.get('total_mv') or 0) / 10000, 2),
+                    'total_mv': round((result.get('total_mv') or 0), 2),
                     'pct_chg': round(result.get('pct_chg') or 0, 2),
                     'rsi': round(result.get('rsi') or 0, 2),
                     'volume_ratio': round(result.get('volume_ratio') or 0, 2),
@@ -192,9 +192,11 @@ class OversoldReboundAdapter:
             traceback.print_exc()
             return {
                 'strategy_name': self.strategy_name,
+                'strategy_type': self.strategy_type,  # 添加缺失的字段
                 'error': str(e),
                 'total_count': 0,
-                'stocks': []
+                'stocks': [],
+                'timestamp': datetime.now().isoformat()
             }
     
     def _generate_reason(self, result: Dict) -> str:

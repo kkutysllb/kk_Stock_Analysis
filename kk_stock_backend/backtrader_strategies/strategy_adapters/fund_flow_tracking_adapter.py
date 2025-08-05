@@ -89,9 +89,11 @@ class FundFlowTrackingAdapter:
             print(f"❌ 资金追踪策略选股失败: {e}")
             return {
                 'strategy_name': self.strategy_name,
+                'strategy_type': self.strategy_type,  # 添加缺失的字段
                 'error': str(e),
                 'total_count': 0,
-                'stocks': []
+                'stocks': [],
+                'timestamp': datetime.now().isoformat()
             }
 
     async def _optimized_fund_flow_screening(self, market_cap: str, stock_pool: str, 

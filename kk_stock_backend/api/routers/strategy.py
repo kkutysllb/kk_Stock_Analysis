@@ -459,7 +459,7 @@ async def value_investment_screening(
     stock_pool: str = "all",  # 股票池：all/main/gem/star
     limit: int = 20,
     current_user: dict = Depends(get_current_user)
-):
+) -> ScreeningResponse:
     """价值投资策略专门接口 - 基于历史财报均值，使用策略适配器实现"""
     try:
         # 导入价值投资策略适配器
@@ -534,10 +534,10 @@ async def value_investment_screening(
 @cache_endpoint(data_type="growth_stock", ttl=300)
 async def growth_stock_screening(
     market_cap: str = "all",
-    stock_pool: str = "all", 
+    stock_pool: str = "all",
     limit: int = 20,
     current_user: dict = Depends(get_current_user)
-):
+) -> ScreeningResponse:
     """成长股策略专门接口 - 高质量成长股筛选，使用策略适配器实现"""
     try:
         # 导入成长股策略适配器
@@ -610,7 +610,7 @@ async def momentum_breakthrough_screening(
     volume_ratio_min: float = 1.5,  # 量比最小值
     require_macd_golden: bool = True,  # 是否要求MACD金叉
     current_user: dict = Depends(get_current_user)
-):
+) -> ScreeningResponse:
     "动量突破策略专门接口 - 使用策略适配器实现"
     try:
         # 导入动量突破策略适配器
@@ -685,7 +685,7 @@ async def high_dividend_screening(
     dividend_fundraising_ratio_min: float = 30.0,
     net_cash_min: float = -1000000.0,
     current_user: dict = Depends(get_current_user)
-):
+) -> ScreeningResponse:
     """高股息策略专门接口 - 使用策略适配器实现"""
     try:
         
@@ -772,7 +772,7 @@ async def technical_breakthrough_screening(
     ma_alignment: bool = False,       # 是否要求均线多头排列
     bollinger_position: str = "upper", # 布林带位置
     current_user: dict = Depends(get_current_user)
-):
+) -> ScreeningResponse:
     """技术突破策略专门接口 - 使用策略适配器实现"""
     try:
         # 导入技术突破策略适配器
@@ -843,7 +843,7 @@ async def oversold_rebound_screening(
     stock_pool: str = "all",
     limit: int = 20,
     current_user: dict = Depends(get_current_user)
-):
+) -> ScreeningResponse:
     """超跌反弹策略专门接口 - 使用策略适配器实现"""
     try:
         # 导入超跌反弹策略适配器
@@ -906,7 +906,7 @@ async def limit_up_leader_screening(
     stock_pool: str = "all",
     limit: int = 20,
     current_user: dict = Depends(get_current_user)
-):
+) -> ScreeningResponse:
     """连板龙头策略专门接口 - 使用策略适配器实现"""
     try:
         # 导入连板龙头策略适配器
@@ -973,7 +973,7 @@ async def fund_flow_tracking_screening(
     margin_buy_trend_min: float = 50.0,
     margin_balance_growth_min: float = 50.0,
     current_user: dict = Depends(get_current_user)
-):
+) -> ScreeningResponse:
     """资金追踪策略专门接口 - 使用策略适配器实现，基于融资融券数据"""
     try:
         # 导入资金追踪策略适配器

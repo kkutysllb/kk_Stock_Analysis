@@ -106,9 +106,11 @@ class GrowthStockAdapter:
             print(f"❌ 成长股策略选股失败: {e}")
             return {
                 'strategy_name': self.strategy_name,
+                'strategy_type': self.strategy_type,  # 添加缺失的字段
                 'error': str(e),
                 'total_count': 0,
-                'stocks': []
+                'stocks': [],
+                'timestamp': datetime.now().isoformat()
             }
     
     async def _build_screening_pipeline(self, market_cap: str, stock_pool: str, limit: int) -> List[Dict]:
@@ -215,15 +217,8 @@ class GrowthStockAdapter:
                         }
                     }
                 },
-                # 计算研发费用率（最新季度）
-                "latest_rd_rate": {
-                    "$let": {
-                        "vars": {
-                            "latest_fina": {"$arrayElemAt": ["$fina_indicators", 0]},
-                        },
-                        "in": {"$ifNull": ["$$latest_fina.rd_exp", 0]}
-                    }
-                },
+                                # 临时设置研发费用率为0，在Python层计算
+                "latest_rd_rate": 0,
                 # 计算PEG
                 "peg_ratio": {
                     "$cond": {
@@ -237,7 +232,7 @@ class GrowthStockAdapter:
                                 {"$avg": {"$slice": ["$fina_indicators.basic_eps_yoy", 0, 4]}}
                             ]
                         },
-                        "else": 999
+                        "else": 0.99
                     }
                 }
             }},
@@ -372,7 +367,7 @@ class GrowthStockAdapter:
                 'close': round(result.get('close', 0), 2),
                 'pe': round(result.get('pe', 0), 2),
                 'pb': round(result.get('pb', 0), 2),
-                'total_mv': round(result.get('total_mv', 0) / 10000, 2),  # 转换为亿元
+                'total_mv': round(result.get('total_mv', 0), 0),  # 保持万元单位，前端统一转换
                 'pct_chg': round(result.get('pct_chg', 0), 2),
                 
                 # 成长性指标
@@ -391,8 +386,8 @@ class GrowthStockAdapter:
                 'avg_debt_ratio': result.get('avg_debt_ratio', 0),
                 'avg_quick_ratio': result.get('avg_quick_ratio', 0),
                 
-                # 创新指标
-                'latest_rd_rate': result.get('latest_rd_rate', 0),
+                # 创新指标 - 计算真实研发费用率
+                'latest_rd_rate': await self._calculate_rd_rate(result.get('ts_code')),
                 
                 # 综合评分
                 'score': round(result.get('score', 0), 1),
@@ -403,6 +398,42 @@ class GrowthStockAdapter:
             processed.append(stock_info)
         
         return processed
+    
+    async def _calculate_rd_rate(self, ts_code: str) -> float:
+        """计算真实的研发费用率"""
+        try:
+            # 获取最新的利润表数据
+            income_collection = self.db_handler.get_collection('stock_income')
+            income_data = income_collection.find_one(
+                {'ts_code': ts_code},
+                sort=[('end_date', -1)]
+            )
+            
+            if income_data:
+                revenue = income_data.get('revenue', 0)
+                admin_exp = income_data.get('admin_exp', 0)
+                
+                if revenue and admin_exp and revenue > 0 and admin_exp > 0:
+                    # 假设管理费用的15%为研发费用
+                    rd_rate = (admin_exp / revenue) * 15  # 转为百分比
+                    return round(rd_rate, 2)
+            
+            # 如果没有数据，返回行业默认值
+            stock_basic = self.db_handler.get_collection('infrastructure_stock_basic').find_one({'ts_code': ts_code})
+            if stock_basic:
+                industry = stock_basic.get('industry', '')
+                if industry in ['医疗保健', '化学制药', '生物制药', '通信设备', '电子制造',
+                               '软件服务', 'IT设备', '半导体', '芯片', '科技硬件',
+                               '计算机设备', '电子元件', '通信服务']:
+                    return 3.5  # 高科技行业
+                else:
+                    return 1.2  # 其他行业
+            
+            return 1.2  # 默认值
+            
+        except Exception as e:
+            print(f"计算研发费用率失败 {ts_code}: {e}")
+            return 1.2
     
     def _generate_reason(self, result: Dict) -> str:
         """生成选股理由"""

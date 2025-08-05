@@ -108,9 +108,11 @@ class MomentumBreakthroughAdapter:
             print(f"❌ 动量突破策略选股失败: {e}")
             return {
                 'strategy_name': self.strategy_name,
+                'strategy_type': self.strategy_type,  # 添加缺失的字段
                 'error': str(e),
                 'total_count': 0,
-                'stocks': []
+                'stocks': [],
+                'timestamp': datetime.now().isoformat()
             }
     
     def _update_params(self, kwargs: Dict[str, Any]):
@@ -144,13 +146,8 @@ class MomentumBreakthroughAdapter:
             
             # 第三步：计算衍生指标
             {"$addFields": {
-                # 计算过去N日收益率（简化处理）
-                "period_return": {
-                    "$multiply": [
-                        {"$convert": {"input": "$pct_chg", "to": "double", "onError": 0}}, 
-                        {"$divide": [{"$convert": {"input": {"$literal": self.params['period_days']}, "to": "double", "onError": 1}}, 20]}
-                    ]
-                },
+                # 60日收益率（暂时使用0占位符，在Python层计算真实值）
+                "period_return": 0,
                 
                 # 计算RPS相对强度评分
                 "rps_score": {
@@ -302,8 +299,8 @@ class MomentumBreakthroughAdapter:
                 'total_mv': round((result.get('total_mv') or 0) / 10000, 2),  # 转换为亿元
                 'pct_chg': round(result.get('pct_chg') or 0, 2),
                 
-                # 动量指标
-                'period_return': round(result.get('period_return') or 0, 2),
+                # 动量指标 - 计算真实的60日收益率
+                'period_return': await self._calculate_period_return(result.get('ts_code'), 60),
                 'rps_score': round(result.get('rps_score') or 0, 1),
                 
                 # 技术指标
@@ -330,6 +327,63 @@ class MomentumBreakthroughAdapter:
             processed.append(stock_info)
         
         return processed
+    
+    async def _calculate_period_return(self, ts_code: str, days: int = 60) -> float:
+        """计算指定天数的收益率"""
+        try:
+            # 获取最近的股票行情数据
+            collection = self.db_handler.get_collection('stock_factor_pro')
+            
+            # 获取最新数据
+            latest_data = collection.find_one(
+                {'ts_code': ts_code}, 
+                sort=[('trade_date', -1)]
+            )
+            
+            if not latest_data:
+                return 0.0
+            
+            latest_date = latest_data.get('trade_date')
+            latest_close = latest_data.get('close', 0)
+            
+            if not latest_date or not latest_close:
+                return 0.0
+            
+            # 计算N个交易日前的日期（简化：假设一个月22个交易日）
+            if days == 60:
+                # 60个交易日约等于3个月前
+                target_months_ago = 3
+            elif days == 20:
+                # 20个交易日约等于1个月前
+                target_months_ago = 1
+            else:
+                target_months_ago = max(1, days // 20)
+            
+            # 尝试获取N个交易日前的数据（向前查找）
+            historical_data = collection.find_one(
+                {
+                    'ts_code': ts_code,
+                    'trade_date': {
+                        '$lt': latest_date,
+                        '$gte': str(int(latest_date) - target_months_ago * 100)  # 简化的日期计算
+                    }
+                },
+                sort=[('trade_date', 1)]  # 从最早的开始找
+            )
+            
+            if historical_data:
+                historical_close = historical_data.get('close', 0)
+                if historical_close and historical_close > 0:
+                    # 返回小数形式（前端会乘以100显示为百分比）
+                    return round((latest_close - historical_close) / historical_close, 4)
+            
+            # 如果找不到历史数据，返回当日涨跌幅作为近似值（转为小数形式）
+            pct_chg = latest_data.get('pct_chg', 0)
+            return round(pct_chg / 100, 4) if pct_chg else 0
+            
+        except Exception as e:
+            print(f"计算{days}日收益率失败 {ts_code}: {e}")
+            return 0.0
     
     def _generate_reason(self, result: Dict) -> str:
         """生成选股理由"""

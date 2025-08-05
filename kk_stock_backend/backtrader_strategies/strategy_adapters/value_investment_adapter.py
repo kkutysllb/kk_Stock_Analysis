@@ -113,9 +113,11 @@ class ValueInvestmentAdapter:
             print(f"❌ 价值投资策略选股失败: {e}")
             return {
                 'strategy_name': self.strategy_name,
+                'strategy_type': self.strategy_type,  # 添加缺失的字段
                 'error': str(e),
                 'total_count': 0,
-                'stocks': []
+                'stocks': [],
+                'timestamp': datetime.now().isoformat()
             }
     
     async def _build_screening_pipeline(self, market_cap: str, stock_pool: str) -> List[Dict]:

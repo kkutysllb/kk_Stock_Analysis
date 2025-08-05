@@ -49,7 +49,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # 生产环境配置
-DEFAULT_WORKERS="4"                    # 默认worker数量
+DEFAULT_WORKERS="1"                    # 默认worker数量
 DEFAULT_LIMIT_CONCURRENCY="1000"       # 最大并发连接数
 DEFAULT_KEEPALIVE="5"                  # Keep-alive超时
 DEFAULT_BACKLOG="2048"                 # 连接队列长度
