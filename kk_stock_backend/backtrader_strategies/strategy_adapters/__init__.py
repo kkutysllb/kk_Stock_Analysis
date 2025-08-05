@@ -30,8 +30,8 @@ from .growth_stock_adapter import GrowthStockAdapter
 from .momentum_breakthrough_adapter import MomentumBreakthroughAdapter
 from .high_dividend_adapter import HighDividendAdapter
 from .technical_breakthrough_adapter import TechnicalBreakthroughAdapter
-from .oversold_rebound_adapter import OversoldReboundAdapter
-from .limit_up_leader_adapter import LimitUpLeaderAdapter
+from .oversold_rebound_adapter_simple import OversoldReboundAdapter
+from .limit_up_leader_adapter_simple import LimitUpLeaderAdapter
 from .fund_flow_tracking_adapter import FundFlowTrackingAdapter
 
 # 策略适配器注册表

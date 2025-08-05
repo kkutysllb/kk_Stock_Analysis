@@ -296,33 +296,33 @@ class MomentumBreakthroughAdapter:
                 'industry': result.get('industry', ''),
                 
                 # 基础指标
-                'close': round(result.get('close', 0), 2),
-                'pe': round(result.get('pe', 0), 2),
-                'pb': round(result.get('pb', 0), 2),
-                'total_mv': round(result.get('total_mv', 0) / 10000, 2),  # 转换为亿元
-                'pct_chg': round(result.get('pct_chg', 0), 2),
+                'close': round(result.get('close') or 0, 2),
+                'pe': round(result.get('pe') or 0, 2),
+                'pb': round(result.get('pb') or 0, 2),
+                'total_mv': round((result.get('total_mv') or 0) / 10000, 2),  # 转换为亿元
+                'pct_chg': round(result.get('pct_chg') or 0, 2),
                 
                 # 动量指标
-                'period_return': round(result.get('period_return', 0), 2),
-                'rps_score': round(result.get('rps_score', 0), 1),
+                'period_return': round(result.get('period_return') or 0, 2),
+                'rps_score': round(result.get('rps_score') or 0, 1),
                 
                 # 技术指标
-                'rsi': round(result.get('rsi', 0), 1),
-                'volume_ratio': round(result.get('volume_ratio', 0), 2),
-                'macd': round(result.get('macd', 0), 4),
-                'macd_signal': round(result.get('macd_signal', 0), 4),
-                'macd_histogram': round(result.get('macd_histogram', 0), 4),
+                'rsi': round(result.get('rsi') or 0, 1),
+                'volume_ratio': round(result.get('volume_ratio') or 0, 2),
+                'macd': round(result.get('macd') or 0, 4),
+                'macd_signal': round(result.get('macd_signal') or 0, 4),
+                'macd_histogram': round(result.get('macd_histogram') or 0, 4),
                 
                 # 均线指标
-                'ema_20': round(result.get('ema_20', 0), 2),
-                'ema_50': round(result.get('ema_50', 0), 2),
+                'ema_20': round(result.get('ema_20') or 0, 2),
+                'ema_50': round(result.get('ema_50') or 0, 2),
                 
                 # 信号指标
                 'breakthrough_signal': result.get('breakthrough_signal', False),
                 'macd_golden': result.get('macd_golden', False),
                 
                 # 综合评分
-                'score': round(result.get('score', 0), 1),
+                'score': round(result.get('score') or 0, 1),
                 
                 # 选股理由
                 'reason': self._generate_reason(result)

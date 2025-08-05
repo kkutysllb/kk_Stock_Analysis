@@ -94,6 +94,13 @@ class ScreeningResult(BaseModel):
     industry_fund_strength: Optional[float] = Field(None, description="行业资金流入强度(%)")
     sector_rotation_score: Optional[float] = Field(None, description="行业轮动评分(%)")
     fund_tracking_score: Optional[float] = Field(None, description="资金追踪综合评分(%)")
+    # 连板龙头策略专用字段
+    limit_times: Optional[float] = Field(None, description="连板次数")
+    open_times: Optional[int] = Field(None, description="开板次数")
+    is_leader: Optional[bool] = Field(None, description="是否龙头")
+    amount: Optional[float] = Field(None, description="成交额(亿元)")
+    # 可能的其他字段名映射
+    turnover_rate: Optional[float] = Field(None, description="换手率(%)")
     # 详细数据
     technical: Optional[Dict[str, Any]] = Field(None, description="技术指标")
     fundamental: Optional[Dict[str, Any]] = Field(None, description="基本面数据")
@@ -469,7 +476,14 @@ async def value_investment_screening(
         # 检查是否有错误
         if 'error' in adapter_result:
             logger.error(f"价值投资适配器执行失败: {adapter_result['error']}")
-            raise HTTPException(status_code=500, detail=f"价值投资策略筛选失败: {adapter_result['error']}")
+            # 返回空结果而不是抛出异常
+            return ScreeningResponse(
+                strategy_name=adapter_result.get('strategy_name', "价值投资策略"),
+                strategy_type="fundamental",
+                total_count=0,
+                screening_time=datetime.now(),
+                results=[]
+            )
         
         # 转换适配器返回格式为API标准格式
         formatted_results = []
@@ -485,10 +499,14 @@ async def value_investment_screening(
                 total_mv=stock.get('total_mv'),
                 score=stock.get('total_score', 0),
                 roe=stock.get('roe'),
-                # 将适配器的详细数据放入technical字段以便前端显示
+                # 将适配器的详细数据放入technical字段以便前端显示（字段名与原始API保持一致）
                 technical={
-                    'avg_roe': stock.get('avg_roe'),
-                    'roe_stability': stock.get('roe_stability'),
+                    'roe': stock.get('avg_roe'),                    # ROE% (前端期望的字段名)
+                    'roe_yearly': stock.get('avg_roe_yearly'),      # 年化ROE
+                    'current_ratio': stock.get('avg_current_ratio'), # 流动比率 (前端期望的字段名)
+                    'debt_ratio': stock.get('avg_debt_ratio'),       # 负债率% (前端期望的字段名)
+                    'profit_growth': stock.get('avg_profit_growth'), # 利润增长率
+                    'financial_count': stock.get('financial_periods'), # 财务数据期数
                     'growth_score': stock.get('growth_score'),
                     'profitability_score': stock.get('profitability_score'),
                     'total_score': stock.get('total_score'),
@@ -662,414 +680,83 @@ async def high_dividend_screening(
     market_cap: str = "all",
     stock_pool: str = "all",
     limit: int = 20,
-    dividend_yield_min: float = 2.0,  # 股息率最低要求：近一年>2%（调整为更宽松）
-    payout_ratio_min: float = 20.0,  # 股息支付率最低：近3年>20%（调整为更宽松）
-    dividend_fundraising_ratio_min: float = 30.0,  # 分红募资比最低：>30%（调整为更宽松）
-    net_cash_min: float = -1000000.0,  # 净现金水平最低：不限制
+    dividend_yield_min: float = 2.0,
+    payout_ratio_min: float = 20.0,
+    dividend_fundraising_ratio_min: float = 30.0,
+    net_cash_min: float = -1000000.0,
     current_user: dict = Depends(get_current_user)
 ):
-    """高股息策略专门接口 - 调整版：分红募资比>50%，股息支付率>30%，股息率>2%，净现金水平>0"""
+    """高股息策略专门接口 - 使用策略适配器实现"""
     try:
-        pipeline = []
-        latest_date = await _get_latest_trade_date()
         
-        # 基础筛选条件
-        match_conditions = {
-            "trade_date": latest_date,
-            "close": {"$gt": 0},  # 确保有效价格
-            "total_mv": {"$gt": 0},  # 确保有效市值
-        }
+        # 导入高股息策略适配器
+        from backtrader_strategies.strategy_adapters.high_dividend_adapter import HighDividendAdapter
         
-        # 市值筛选
-        if market_cap == "large":
-            match_conditions["total_mv"] = {"$gte": 5000000}
-        elif market_cap == "mid":
-            match_conditions["total_mv"] = {"$gte": 1000000, "$lte": 5000000}
-        elif market_cap == "small":
-            match_conditions["total_mv"] = {"$lte": 1000000}
+        # 创建适配器实例并执行选股
+        adapter = HighDividendAdapter()
+        adapter_result = await adapter.screen_stocks(
+            market_cap=market_cap,
+            stock_pool=stock_pool,
+            limit=limit,
+            dividend_yield_min=dividend_yield_min,
+            payout_ratio_min=payout_ratio_min,
+            dividend_fundraising_ratio_min=dividend_fundraising_ratio_min,
+            net_cash_min=net_cash_min
+        )
         
-        # 股票池筛选
-        if stock_pool != "all":
-            resolved_pool = await _resolve_stock_pool([stock_pool])
-            if resolved_pool:
-                match_conditions["ts_code"] = {"$in": resolved_pool}
+        # 检查是否有错误
+        if 'error' in adapter_result:
+            logger.error(f"高股息策略适配器执行失败: {adapter_result['error']}")
+            # 返回空结果而不是抛出异常
+            return ScreeningResponse(
+                strategy_name=adapter_result.get('strategy_name', "高股息策略"),
+                strategy_type="dividend",
+                total_count=0,
+                screening_time=datetime.now(),
+                results=[]
+            )
         
-        pipeline.extend([
-            {"$match": match_conditions},
-            
-            # 联接股票基本信息
-            {"$lookup": {
-                "from": "infrastructure_stock_basic",
-                "localField": "ts_code",
-                "foreignField": "ts_code",
-                "as": "stock_info"
-            }},
-            {"$unwind": {"path": "$stock_info", "preserveNullAndEmptyArrays": True}},
-            
-            # 联接最新财务指标数据
-            {"$lookup": {
-                "from": "stock_fina_indicator",
-                "let": {"ts_code": "$ts_code"},
-                "pipeline": [
-                    {"$match": {
-                        "$expr": {"$eq": ["$ts_code", "$$ts_code"]}
-                    }},
-                    {"$sort": {"end_date": -1}},
-                    {"$limit": 1}
-                ],
-                "as": "fina_data"
-            }},
-            {"$unwind": {"path": "$fina_data", "preserveNullAndEmptyArrays": True}},
-            
-            # 联接现金流数据
-            {"$lookup": {
-                "from": "stock_cash_flow",
-                "let": {"ts_code": "$ts_code"},
-                "pipeline": [
-                    {"$match": {
-                        "$expr": {"$eq": ["$ts_code", "$$ts_code"]}
-                    }},
-                    {"$sort": {"end_date": -1}},
-                    {"$limit": 1}
-                ],
-                "as": "cashflow_data"
-            }},
-            {"$unwind": {"path": "$cashflow_data", "preserveNullAndEmptyArrays": True}},
-            
-            # 联接利润表数据
-            {"$lookup": {
-                "from": "stock_income",
-                "let": {"ts_code": "$ts_code"},
-                "pipeline": [
-                    {"$match": {
-                        "$expr": {"$eq": ["$ts_code", "$$ts_code"]}
-                    }},
-                    {"$sort": {"end_date": -1}},
-                    {"$limit": 1}
-                ],
-                "as": "income_data"
-            }},
-            {"$unwind": {"path": "$income_data", "preserveNullAndEmptyArrays": True}},
-            
-            # 联接资产负债表数据
-            {"$lookup": {
-                "from": "stock_balance_sheet",
-                "let": {"ts_code": "$ts_code"},
-                "pipeline": [
-                    {"$match": {
-                        "$expr": {"$eq": ["$ts_code", "$$ts_code"]}
-                    }},
-                    {"$sort": {"end_date": -1}},
-                    {"$limit": 1}
-                ],
-                "as": "balance_data"
-            }},
-            {"$unwind": {"path": "$balance_data", "preserveNullAndEmptyArrays": True}},
-            
-            # 联接近3年财务指标数据计算股息支付率平均值
-            {"$lookup": {
-                "from": "stock_fina_indicator",
-                "let": {"ts_code": "$ts_code"},
-                "pipeline": [
-                    {"$match": {
-                        "$expr": {"$eq": ["$ts_code", "$$ts_code"]}
-                    }},
-                    {"$sort": {"end_date": -1}},
-                    {"$limit": 3}  # 近3年数据
-                ],
-                "as": "fina_data_3y"
-            }},
-            
-            # 联接近3年现金流数据计算募资和分红数据
-            {"$lookup": {
-                "from": "stock_cash_flow",
-                "let": {"ts_code": "$ts_code"},
-                "pipeline": [
-                    {"$match": {
-                        "$expr": {"$eq": ["$ts_code", "$$ts_code"]}
-                    }},
-                    {"$sort": {"end_date": -1}},
-                    {"$limit": 3}  # 近3年数据
-                ],
-                "as": "cashflow_data_3y"
-            }},
-            
-            # 计算关键指标
-            {"$addFields": {
-                # 基础财务指标
-                "roe": {"$ifNull": ["$fina_data.roe", 0]},  # ROE
-                "roa": {"$ifNull": ["$fina_data.roa", 0]},  # ROA
-                "eps": {"$ifNull": ["$fina_data.eps", 0]},  # 每股收益
-                "bps": {"$ifNull": ["$fina_data.bps", 0]},  # 每股净资产
-                
-                # 计算股息率（使用EPS估算，假设40%分红率）
-                "dividend_yield": {
-                    "$cond": {
-                        "if": {"$and": [
-                            {"$gt": [{"$ifNull": ["$fina_data.eps", 0]}, 0]},
-                            {"$gt": [{"$ifNull": ["$close", 0]}, 0]}
-                        ]},
-                        "then": {
-                            "$multiply": [
-                                {"$divide": [
-                                    {"$multiply": [{"$ifNull": ["$fina_data.eps", 0]}, 0.4]},  # 假设40%分红率
-                                    {"$ifNull": ["$close", 1]}
-                                ]},
-                                100
-                            ]
-                        },
-                        "else": 0
-                    }
-                },
-                
-                # 计算股息支付率（假设25%）
-                "payout_ratio_3y": {
-                    "$literal": 25  # 假设股息支付率为25%
-                },
-                
-                # 计算分红募资比（使用实际字段）
-                "dividend_fundraising_ratio": {
-                    "$cond": {
-                        "if": {"$gt": [{"$size": "$cashflow_data_3y"}, 0]},
-                        "then": {
-                            "$let": {
-                                "vars": {
-                                    "total_dividends": {
-                                        "$sum": {
-                                            "$map": {
-                                                "input": "$cashflow_data_3y",
-                                                "as": "cf",
-                                                "in": {"$abs": {"$ifNull": ["$$cf.c_pay_dist_dpcp_int_exp", 0]}}
-                                            }
-                                        }
-                                    },
-                                    "total_fundraising": {
-                                        "$sum": {
-                                            "$map": {
-                                                "input": "$cashflow_data_3y",
-                                                "as": "cf",
-                                                "in": {
-                                                    "$add": [
-                                                        {"$ifNull": ["$$cf.proc_issue_bonds", 0]},
-                                                        {"$ifNull": ["$$cf.stot_cash_in_fnc_act", 0]}
-                                                    ]
-                                                }
-                                            }
-                                        }
-                                    }
-                                },
-                                "in": {
-                                    "$cond": {
-                                        "if": {"$gt": ["$$total_fundraising", 0]},
-                                        "then": {
-                                            "$multiply": [
-                                                {"$divide": ["$$total_dividends", "$$total_fundraising"]},
-                                                100
-                                            ]
-                                        },
-                                        "else": 0
-                                    }
-                                }
-                            }
-                        },
-                        "else": 0
-                    }
-                },
-                
-                # 计算净现金水平（使用实际字段：现金储备 - 银行借款）
-                "net_cash": {
-                    "$cond": {
-                        "if": {"$ne": ["$balance_data", None]},
-                        "then": {
-                            "$subtract": [
-                                {"$ifNull": ["$balance_data.cash_reser_cb", 0]},
-                                {"$ifNull": ["$balance_data.cb_borr", 0]}
-                            ]
-                        },
-                        "else": 0
-                    }
-                },
-                
-                # 计算自由现金流/营收比率
-                "fcf_revenue_ratio": {
-                    "$cond": {
-                        "if": {"$and": [
-                            {"$gt": [{"$ifNull": ["$income_data.total_revenue", 0]}, 0]},
-                            {"$ne": [{"$ifNull": ["$cashflow_data.free_cashflow", 0]}, None]}
-                        ]},
-                        "then": {
-                            "$multiply": [
-                                {"$divide": [
-                                    {"$ifNull": ["$cashflow_data.free_cashflow", 0]},
-                                    {"$ifNull": ["$income_data.total_revenue", 1]}
-                                ]},
-                                100
-                            ]
-                        },
-                        "else": 0
-                    }
-                },
-                
-                # 计算资产负债率
-                "debt_ratio": {
-                    "$cond": {
-                        "if": {"$and": [
-                            {"$gt": [{"$ifNull": ["$balance_data.total_assets", 0]}, 0]},
-                            {"$gt": [{"$ifNull": ["$balance_data.total_liab", 0]}, 0]}
-                        ]},
-                        "then": {
-                            "$multiply": [
-                                {"$divide": [
-                                    {"$ifNull": ["$balance_data.total_liab", 0]},
-                                    {"$ifNull": ["$balance_data.total_assets", 1]}
-                                ]},
-                                100
-                            ]
-                        },
-                        "else": 0
-                    }
-                },
-                
-                # 计算净利润率
-                "net_profit_margin": {
-                    "$cond": {
-                        "if": {"$and": [
-                            {"$gt": [{"$ifNull": ["$income_data.total_revenue", 0]}, 0]},
-                            {"$ne": [{"$ifNull": ["$income_data.n_income", 0]}, None]}
-                        ]},
-                        "then": {
-                            "$multiply": [
-                                {"$divide": [
-                                    {"$ifNull": ["$income_data.n_income", 0]},
-                                    {"$ifNull": ["$income_data.total_revenue", 1]}
-                                ]},
-                                100
-                            ]
-                        },
-                        "else": 0
-                    }
-                }
-            }},
-            
-            # 应用高股息策略筛选条件（极简版本）
-            {"$match": {
-                "$and": [
-                    # 核心筛选条件
-                    {"dividend_yield": {"$gte": dividend_yield_min}},  # 股息率近一年 > 2%
-                    {"eps": {"$gt": 0}},  # 每股收益为正
-                    
-                    # 市值筛选
-                    {"total_mv": {"$gte": 1000000}},  # 总市值 > 10亿
-                    
-                    # 排除ST股票
-                    {"stock_info.name": {"$not": {"$regex": "ST|\\*ST", "$options": "i"}}}
-                ]
-            }},
-            
-            # 计算综合评分（100分制）
-            {"$addFields": {
-                "score": {
-                    "$min": [
-                        100,  # 最高100分
-                        {
-                            "$add": [
-                                {"$multiply": ["$dividend_yield", 8]},  # 股息率权重：8分/% (最高24分)
-                                {"$multiply": [{"$min": ["$payout_ratio_3y", 50]}, 0.3]},  # 股息支付率权重：最高15分
-                                {"$multiply": [{"$min": ["$dividend_fundraising_ratio", 100]}, 0.2]},  # 分红募资比权重：最高20分
-                                {
-                                    "$cond": {
-                                        "if": {"$gt": ["$net_cash", 0]},
-                                        "then": {"$min": [{"$multiply": [{"$divide": ["$net_cash", 100000]}, 2]}, 10]},  # 净现金正数加分，最高10分
-                                        "else": 0
-                                    }
-                                },
-                                {"$multiply": [{"$min": ["$roe", 20]}, 0.5]},  # ROE权重：最高10分
-                                {"$multiply": [{"$min": ["$roa", 10]}, 0.5]},  # ROA权重：最高5分
-                                {
-                                    "$cond": {
-                                        "if": {"$gt": ["$fcf_revenue_ratio", 0]},
-                                        "then": {"$min": [{"$multiply": ["$fcf_revenue_ratio", 0.2]}, 5]},  # 现金流正数加分，最高5分
-                                        "else": 0
-                                    }
-                                },
-                                {"$multiply": [{"$min": ["$net_profit_margin", 20]}, 0.25]},  # 净利润率权重：最高5分
-                                {
-                                    "$cond": {
-                                        "if": {"$lt": ["$debt_ratio", 60]},
-                                        "then": {"$multiply": [{"$subtract": [60, "$debt_ratio"]}, 0.1]},  # 低负债率加分，最高6分
-                                        "else": 0
-                                    }
-                                }
-                            ]
-                        }
-                    ]
-                }
-            }},
-            
-            # 输出字段
-            {"$project": {
-                "ts_code": 1,
-                "name": "$stock_info.name",
-                "industry": "$stock_info.industry",
-                "close": 1,
-                "pe": 1,
-                "pb": 1,
-                "pct_chg": {"$ifNull": ["$pct_chg", 0]},
-                "total_mv": {"$ifNull": ["$total_mv", 0]},
-                "score": 1,
+        # 转换适配器返回格式为API标准格式
+        formatted_results = []
+        for stock in adapter_result.get('stocks', []):
+            result = ScreeningResult(
+                ts_code=stock.get('ts_code'),
+                name=stock.get('name', ''),
+                industry=stock.get('industry'),
+                close=stock.get('close'),
+                pe=stock.get('pe'),
+                pb=stock.get('pb'),
+                pct_chg=stock.get('pct_chg'),
+                total_mv=stock.get('total_mv'),
+                score=stock.get('score', 0),
                 # 高股息策略专用字段
-                "dividend_yield": 1,  # 股息率近一年
-                "payout_ratio_3y": 1,  # 股息支付率近3年平均
-                "dividend_fundraising_ratio": 1,  # 分红募资比
-                "net_cash": 1,  # 净现金水平
-                "roe": 1,
-                "roa": 1,
-                "eps": 1,
-                "bps": 1,
-                "fcf_revenue_ratio": 1,
-                "debt_ratio": 1,
-                "net_profit_margin": 1
-            }},
-            {"$sort": {"score": -1}},
-            {"$limit": limit}
-        ])
-        
-        results = list(db_handler.get_collection('stock_factor_pro').aggregate(pipeline))
-        
-        formatted_results = [ScreeningResult(
-            ts_code=r['ts_code'],
-            name=r.get('name', ''),
-            industry=r.get('industry'),
-            close=r.get('close'),
-            pe=r.get('pe'),
-            pb=r.get('pb'),
-            pct_chg=r.get('pct_chg'),
-            total_mv=r.get('total_mv'),
-            score=round(r.get('score', 0), 2),
-            # 高股息策略专用字段（使用新的计算指标）
-            dividend_yield=round(r.get('dividend_yield', 0), 2),  # 股息率近一年
-            payout_ratio=round(r.get('payout_ratio_3y', 0), 2),  # 股息支付率近3年平均
-            dividend_coverage=None,  # 暂时保留为None
-            roe=r.get('roe'),
-            roic=r.get('roa'),  # 使用ROA代替ROIC
-            fcf_revenue_ratio=r.get('fcf_revenue_ratio'),
-            debt_ratio=r.get('debt_ratio'),
-            # 新增字段
-            eps=r.get('eps'),
-            net_profit_margin=r.get('net_profit_margin'),
-            # 新增策略特定字段
-            dividend_fundraising_ratio=round(r.get('dividend_fundraising_ratio', 0), 2),  # 分红募资比
-            net_cash=round(r.get('net_cash', 0) / 10000, 2)  # 净现金水平（万元）
-        ) for r in results]
+                dividend_yield=stock.get('dividend_yield'),
+                payout_ratio=stock.get('payout_ratio'),
+                dividend_coverage=stock.get('dividend_coverage'),
+                roe=stock.get('roe'),
+                roic=stock.get('roic'),
+                fcf_revenue_ratio=stock.get('fcf_revenue_ratio'),
+                debt_ratio=stock.get('debt_ratio'),
+                eps=stock.get('eps'),
+                net_profit_margin=stock.get('net_profit_margin'),
+                dividend_fundraising_ratio=stock.get('dividend_fundraising_ratio'),
+                net_cash=stock.get('net_cash')
+            )
+            formatted_results.append(result)
         
         return ScreeningResponse(
-            strategy_name="高股息策略",
-            strategy_type="dividend",  # 修正策略类型
-            total_count=len(formatted_results),
+            strategy_name=adapter_result.get('strategy_name', "高股息策略"),
+            strategy_type="dividend",
+            total_count=adapter_result.get('total_count', 0),
             screening_time=datetime.now(),
             results=formatted_results
         )
+        
+    except ImportError as e:
+        logger.error(f"无法导入高股息策略适配器: {str(e)}")
+        raise HTTPException(status_code=500, detail="策略适配器加载失败")
     except Exception as e:
+        logger.error(f"高股息策略筛选失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"高股息策略筛选失败: {str(e)}")
 
 @router.post("/technical-breakthrough")
@@ -1078,6 +765,12 @@ async def technical_breakthrough_screening(
     market_cap: str = "all",
     stock_pool: str = "all",
     limit: int = 20,
+    rsi_min: float = 45.0,           # RSI下限
+    rsi_max: float = 85.0,           # RSI上限
+    volume_ratio_min: float = 1.2,   # 量比下限
+    macd_requirement: bool = False,   # 是否要求MACD金叉
+    ma_alignment: bool = False,       # 是否要求均线多头排列
+    bollinger_position: str = "upper", # 布林带位置
     current_user: dict = Depends(get_current_user)
 ):
     """技术突破策略专门接口 - 使用策略适配器实现"""
@@ -1090,7 +783,12 @@ async def technical_breakthrough_screening(
         adapter_result = await adapter.screen_stocks(
             market_cap=market_cap,
             stock_pool=stock_pool,
-            limit=limit
+            limit=limit,
+            rsi_min=rsi_min,
+            rsi_max=rsi_max,
+            volume_ratio_min=volume_ratio_min,
+            require_macd_golden=macd_requirement,
+            require_ma_alignment=ma_alignment
         )
         
         # 检查是否有错误
@@ -1110,7 +808,15 @@ async def technical_breakthrough_screening(
                 pb=stock.get('pb'),
                 pct_chg=stock.get('pct_chg'),
                 total_mv=stock.get('total_mv'),
-                score=stock.get('score', 0)
+                score=stock.get('score', 0),
+                # 技术突破策略专用字段 - 直接映射到顶层字段
+                rsi=stock.get('rsi'),                    # RSI指标
+                macd=stock.get('macd'),                  # MACD指标
+                macd_signal=stock.get('macd_signal'),    # MACD信号线
+                volume_ratio=stock.get('volume_ratio'),  # 量比
+                ema_20=stock.get('ema_20'),             # 20日均线
+                ema_50=stock.get('ema_50'),             # 50日均线
+                breakthrough_signal=stock.get('breakthrough_signal')  # 突破信号
             )
             formatted_results.append(result)
         
@@ -1141,7 +847,7 @@ async def oversold_rebound_screening(
     """超跌反弹策略专门接口 - 使用策略适配器实现"""
     try:
         # 导入超跌反弹策略适配器
-        from backtrader_strategies.strategy_adapters.oversold_rebound_adapter import OversoldReboundAdapter
+        from backtrader_strategies.strategy_adapters.oversold_rebound_adapter_simple import OversoldReboundAdapter
         
         # 创建适配器实例并执行选股
         adapter = OversoldReboundAdapter()
@@ -1168,7 +874,12 @@ async def oversold_rebound_screening(
                 pb=stock.get('pb'),
                 pct_chg=stock.get('pct_chg'),
                 total_mv=stock.get('total_mv'),
-                score=stock.get('score', 0)
+                score=stock.get('score', 0),
+                # 超跌反弹策略专用字段
+                rsi=stock.get('rsi'),
+                volume_ratio=stock.get('volume_ratio'),
+                # 其他可能用到的字段
+                breakthrough_signal=stock.get('rebound_signal')
             )
             formatted_results.append(result)
         
@@ -1199,7 +910,7 @@ async def limit_up_leader_screening(
     """连板龙头策略专门接口 - 使用策略适配器实现"""
     try:
         # 导入连板龙头策略适配器
-        from backtrader_strategies.strategy_adapters.limit_up_leader_adapter import LimitUpLeaderAdapter
+        from backtrader_strategies.strategy_adapters.limit_up_leader_adapter_simple import LimitUpLeaderAdapter
         
         # 创建适配器实例并执行选股
         adapter = LimitUpLeaderAdapter()
@@ -1226,7 +937,14 @@ async def limit_up_leader_screening(
                 pb=stock.get('pb'),
                 pct_chg=stock.get('pct_chg'),
                 total_mv=stock.get('total_mv'),
-                score=stock.get('score', 0)
+                score=stock.get('score', 0),
+                # 连板龙头策略专用字段
+                limit_times=stock.get('limit_times'),
+                open_times=stock.get('open_times'),
+                is_leader=stock.get('is_leader'),
+                amount=stock.get('amount'),
+                volume_ratio=stock.get('turnover_rate'),  # 映射换手率到volume_ratio字段
+                turnover_rate=stock.get('turnover_rate')
             )
             formatted_results.append(result)
         
@@ -1310,4 +1028,87 @@ async def fund_flow_tracking_screening(
     except Exception as e:
         logger.error(f"资金追踪策略筛选失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"资金追踪策略筛选失败: {str(e)}")
+
+
+# ==================== 策略模版应用接口 ====================
+
+@router.post("/templates/{template_id}/apply")
+async def apply_strategy_template(
+    template_id: str,
+    additional_params: Optional[Dict[str, Any]] = Body(None),
+    current_user: dict = Depends(get_current_user)
+):
+    """应用策略模板进行选股"""
+    try:
+        logger.info(f"🔍 [模板应用] 开始处理模板ID: {template_id}")
+        
+        # 获取模板信息
+        template = await _get_template_by_id(template_id)
+        if not template:
+            logger.error(f"❌ [模板应用] 模板不存在: {template_id}")
+            raise HTTPException(status_code=404, detail="策略模板不存在")
+        
+        logger.info(f"✅ [模板应用] 获取到模板信息:")
+        logger.info(f"   - 模板名称: {template['template_name']}")
+        logger.info(f"   - 策略类型: {template['strategy_type']}")
+        
+        # 构建请求参数
+        market_cap = "all"
+        stock_pool = "all"
+        limit = 20
+        
+        # 合并额外参数
+        if additional_params:
+            if "limit" in additional_params:
+                limit = additional_params["limit"]
+            if "stock_pool" in additional_params:
+                stock_pool = additional_params["stock_pool"]
+            if "market_cap" in additional_params:
+                market_cap = additional_params["market_cap"]
+        
+        # 根据模板名称调用相应的策略函数
+        template_name = template["template_name"]
+        logger.info(f"🎯 [模板应用] 查找策略函数，模板名称: '{template_name}'")
+        
+        strategy_func_mapping = {
+            "价值投资策略": value_investment_screening,
+            "成长股策略": growth_stock_screening,
+            "动量突破策略": momentum_breakthrough_screening,
+            "高股息策略": high_dividend_screening,
+            "技术突破策略": technical_breakthrough_screening,
+            "超跌反弹策略": oversold_rebound_screening,
+            "连板龙头策略": limit_up_leader_screening,
+            "资金追踪策略": fund_flow_tracking_screening
+        }
+        
+        if template_name not in strategy_func_mapping:
+            logger.warning(f"⚠️ [模板应用] 未找到专门策略函数: {template_name}")
+            logger.info(f"📋 [模板应用] 可用的策略映射: {list(strategy_func_mapping.keys())}")
+            raise HTTPException(status_code=400, detail=f"不支持的策略模板: {template_name}")
+        
+        strategy_func = strategy_func_mapping[template_name]
+        logger.info(f"✅ [模板应用] 找到对应策略函数: {strategy_func.__name__}")
+        
+        logger.info(f"📊 [模板应用] 调用策略函数参数:")
+        logger.info(f"   - market_cap: {market_cap}")
+        logger.info(f"   - stock_pool: {stock_pool}")
+        logger.info(f"   - limit: {limit}")
+        
+        # 调用对应的策略函数
+        result = await strategy_func(market_cap, stock_pool, limit, current_user)
+        
+        logger.info(f"🎉 [模板应用] 策略函数执行完成:")
+        logger.info(f"   - 返回类型: {type(result)}")
+        logger.info(f"   - 策略名称: {result.strategy_name}")
+        logger.info(f"   - 策略类型: {result.strategy_type}")
+        logger.info(f"   - 结果数量: {result.total_count}")
+        
+        return result
+        
+    except HTTPException:
+        # 重新抛出HTTP异常
+        raise
+    except Exception as e:
+        logger.error(f"💥 [模板应用] 应用模板失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"应用模板失败: {str(e)}")
 

@@ -593,7 +593,7 @@ const formatCellValue = (value: any, row: any, type: string, prop: string): stri
       const tr = row?.technical?.turnover_rate
       return tr ? `${tr}%` : '--'
     case 'limit_turnover':
-      const limitTr = row?.special?.turnover_rate
+      const limitTr = row?.turnover_rate || row?.special?.turnover_rate
       return limitTr ? `${limitTr}%` : '--'
     case 'net_inflow':
       const inflow = row?.special?.net_inflow

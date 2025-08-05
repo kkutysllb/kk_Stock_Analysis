@@ -197,87 +197,140 @@ class ValueInvestmentAdapter:
                 "$expr": {"$gte": [{"$size": "$financial_history"}, 4]}
             }},
             
-            # 第五步：计算评分和排序
-            await self._add_scoring_fields(),
-            
-            # 第六步：最终筛选和排序
-            {"$match": {
-                "avg_roe": {"$gte": self.params['roe_avg_min']},
-                "total_score": {"$gte": 70}  # 综合评分要求
+            # 第五步：计算历史财务指标均值和评分
+            {"$addFields": {
+                # 计算ROE均值（最高优先级）
+                "avg_roe": {
+                    "$avg": {
+                        "$map": {
+                            "input": "$financial_history",
+                            "as": "fh",
+                            "in": {"$ifNull": ["$$fh.roe", 0]}
+                        }
+                    }
+                },
+                
+                # 计算年化ROE均值
+                "avg_roe_yearly": {
+                    "$avg": {
+                        "$map": {
+                            "input": "$financial_history",
+                            "as": "fh", 
+                            "in": {"$ifNull": ["$$fh.roe_yearly", 0]}
+                        }
+                    }
+                },
+                
+                # 计算平均流动比率（高现金流指标）
+                "avg_current_ratio": {
+                    "$avg": {
+                        "$map": {
+                            "input": "$financial_history",
+                            "as": "fh",
+                            "in": {"$ifNull": ["$$fh.current_ratio", 1]}
+                        }
+                    }
+                },
+                
+                # 计算平均资产负债率（低负债指标）
+                "avg_debt_ratio": {
+                    "$avg": {
+                        "$map": {
+                            "input": "$financial_history",
+                            "as": "fh",
+                            "in": {"$ifNull": ["$$fh.debt_to_assets", 50]}
+                        }
+                    }
+                },
+                
+                # 计算平均利润增长率（业绩超预期指标）
+                "avg_profit_growth": {
+                    "$avg": {
+                        "$map": {
+                            "input": "$financial_history",
+                            "as": "fh",
+                            "in": {"$ifNull": ["$$fh.netprofit_yoy", 0]}
+                        }
+                    }
+                }
             }},
-            {"$sort": {"total_score": -1}},
+            
+            # 第六步：计算综合评分（按优先级加权）
+            {"$addFields": {
+                "value_score": {
+                    "$add": [
+                        # ROE评分（权重40%，最高优先级）
+                        {"$multiply": [
+                            {"$min": [{"$divide": ["$avg_roe", 20]}, 2]}, 40
+                        ]},
+                        
+                        # 现金流评分（权重20%）
+                        {"$multiply": [
+                            {"$min": [{"$divide": ["$avg_current_ratio", 2]}, 1]}, 20
+                        ]},
+                        
+                        # 低负债评分（权重20%）
+                        {"$multiply": [
+                            {"$max": [{"$subtract": [1, {"$divide": ["$avg_debt_ratio", 100]}]}, 0]}, 20
+                        ]},
+                        
+                        # 业绩增长评分（权重10%）
+                        {"$multiply": [
+                            {"$min": [{"$divide": ["$avg_profit_growth", 30]}, 1]}, 10
+                        ]},
+                        
+                        # PE评分（权重5%）
+                        {"$multiply": [
+                            {"$max": [{"$subtract": [1, {"$divide": ["$pe", 50]}]}, 0]}, 5
+                        ]},
+                        
+                        # PB评分（权重5%）
+                        {"$multiply": [
+                            {"$max": [{"$subtract": [1, {"$divide": ["$pb", 6]}]}, 0]}, 5
+                        ]}
+                    ]
+                }
+            }},
+            
+            # 第七步：应用价值投资核心筛选条件（与原始API逻辑一致）
+            {"$match": {
+                "avg_roe": {"$gte": 10},           # ROE均值 > 10%（最高优先级）
+                "avg_current_ratio": {"$gte": 1.2}, # 流动比率 > 1.2（高现金流）
+                "avg_debt_ratio": {"$lte": 60},     # 资产负债率 < 60%（低负债）
+                "avg_profit_growth": {"$gte": 5}    # 利润增长率 > 5%（业绩超预期）
+            }},
+            
+            # 第八步：输出字段（与原始API一致）
+            {"$project": {
+                "ts_code": 1,
+                "name": "$stock_info.name",
+                "industry": "$stock_info.industry",
+                "close": 1,
+                "pe": 1,
+                "pb": 1,
+                "pct_chg": {"$ifNull": ["$pct_chg", 0]},
+                "total_mv": {"$ifNull": ["$total_mv", 0]},
+                "roe": 1,
+                "avg_roe": {"$round": ["$avg_roe", 2]},
+                "avg_roe_yearly": {"$round": ["$avg_roe_yearly", 2]},
+                "avg_current_ratio": {"$round": ["$avg_current_ratio", 2]},
+                "avg_debt_ratio": {"$round": ["$avg_debt_ratio", 2]},
+                "avg_profit_growth": {"$round": ["$avg_profit_growth", 2]},
+                "value_score": {"$round": ["$value_score", 2]},
+                "financial_periods": {"$size": "$financial_history"},
+                "stock_info": 1,
+                "financial_history": 1
+            }},
+            
+            # 第九步：按价值评分排序
+            {"$sort": {"value_score": -1}},
             {"$limit": 100}  # 限制返回数量
         ])
         
         return pipeline
     
-    async def _add_scoring_fields(self) -> Dict:
-        """添加评分计算字段"""
-        return {"$addFields": {
-            # 计算ROE均值
-            "avg_roe": {
-                "$avg": {
-                    "$map": {
-                        "input": "$financial_history",
-                        "as": "fh",
-                        "in": {"$ifNull": ["$$fh.roe", 0]}
-                    }
-                }
-            },
-            
-            # 计算ROE稳定性（标准差）
-            "roe_stability": {
-                "$stdDevPop": {
-                    "$map": {
-                        "input": "$financial_history",
-                        "as": "fh", 
-                        "in": {"$ifNull": ["$$fh.roe", 0]}
-                    }
-                }
-            },
-            
-            # 计算成长性评分
-            "growth_score": {
-                "$multiply": [
-                    {"$avg": {
-                        "$map": {
-                            "input": "$financial_history",
-                            "as": "fh",
-                            "in": {"$ifNull": ["$$fh.profit_yoy", 0]}
-                        }
-                    }},
-                    2  # 权重调整
-                ]
-            },
-            
-            # 计算盈利能力评分
-            "profitability_score": {
-                "$add": [
-                    {"$multiply": ["$avg_roe", 3]},  # ROE权重
-                    {"$multiply": [{"$ifNull": ["$roe", 0]}, 2]}  # 当前ROE权重
-                ]
-            },
-            
-            # 计算综合得分
-            "total_score": {
-                "$add": [
-                    {"$multiply": ["$avg_roe", 4]},      # ROE权重最高
-                    {"$multiply": [
-                        {"$subtract": [30, {"$ifNull": ["$pe", 30]}]}, 2   # PE估值得分
-                    ]},
-                    {"$multiply": [
-                        {"$subtract": [5, {"$ifNull": ["$pb", 5]}]}, 3     # PB估值得分  
-                    ]},
-                    {"$ifNull": ["$growth_score", 0]},   # 成长性得分
-                    {"$multiply": [
-                        {"$subtract": [10, {"$ifNull": ["$roe_stability", 10]}]}, 1  # 稳定性得分
-                    ]}
-                ]
-            }
-        }}
-    
     async def _process_results(self, results: List[Dict], limit: int) -> List[Dict]:
-        """处理查询结果"""
+        """处理查询结果 - 与原始API输出格式保持一致"""
         processed = []
         
         for result in results[:limit]:
@@ -290,17 +343,25 @@ class ValueInvestmentAdapter:
                 'pe': round(result.get('pe', 0), 2),
                 'pb': round(result.get('pb', 0), 2),
                 'pe_ttm': round(result.get('pe_ttm', 0), 2),
-                'total_mv': round(result.get('total_mv', 0) / 10000, 2),  # 转换为亿元
+                'close': result.get('close', 0),
+                'pct_chg': result.get('pct_chg', 0),
+                'total_mv': round(result.get('total_mv', 0), 2),  # 保持万元单位
                 
-                # 盈利指标
-                'roe': round(result.get('roe', 0), 2),
+                # 财务指标（与原始逻辑一致）
+                'roe': result.get('roe', 0),
                 'avg_roe': round(result.get('avg_roe', 0), 2),
-                'roe_stability': round(result.get('roe_stability', 0), 2),
+                'avg_roe_yearly': round(result.get('avg_roe_yearly', 0), 2),
+                'avg_current_ratio': round(result.get('avg_current_ratio', 0), 2),
+                'avg_debt_ratio': round(result.get('avg_debt_ratio', 0), 2),
+                'avg_profit_growth': round(result.get('avg_profit_growth', 0), 2),
                 
-                # 评分
-                'growth_score': round(result.get('growth_score', 0), 1),
-                'profitability_score': round(result.get('profitability_score', 0), 1), 
-                'total_score': round(result.get('total_score', 0), 1),
+                # 评分（使用value_score作为主评分）
+                'total_score': round(result.get('value_score', 0), 2),
+                'growth_score': round(result.get('avg_profit_growth', 0), 1),
+                'profitability_score': round(result.get('avg_roe', 0) * 4, 1),  # 基于ROE计算
+                
+                # 财务数据期数
+                'financial_periods': result.get('financial_periods', len(result.get('financial_history', []))),
                 
                 # 选股理由
                 'reason': self._generate_reason(result)
@@ -310,19 +371,42 @@ class ValueInvestmentAdapter:
         return processed
     
     def _generate_reason(self, result: Dict) -> str:
-        """生成选股理由"""
+        """生成选股理由 - 基于价值投资四大核心指标"""
         reasons = []
         
         avg_roe = result.get('avg_roe', 0)
+        avg_current_ratio = result.get('avg_current_ratio', 0)
+        avg_debt_ratio = result.get('avg_debt_ratio', 0)
+        avg_profit_growth = result.get('avg_profit_growth', 0)
         pe = result.get('pe', 0)
         pb = result.get('pb', 0)
-        total_score = result.get('total_score', 0)
+        value_score = result.get('value_score', 0)
         
+        # ROE评价
         if avg_roe >= 15:
             reasons.append(f"ROE均值{avg_roe:.1f}%优秀")
-        elif avg_roe >= 12:
+        elif avg_roe >= 10:
             reasons.append(f"ROE均值{avg_roe:.1f}%良好")
+        
+        # 现金流评价
+        if avg_current_ratio >= 2.0:
+            reasons.append(f"流动比率{avg_current_ratio:.1f}高现金流")
+        elif avg_current_ratio >= 1.2:
+            reasons.append(f"流动比率{avg_current_ratio:.1f}现金流良好")
             
+        # 负债评价
+        if avg_debt_ratio <= 40:
+            reasons.append(f"负债率{avg_debt_ratio:.1f}%低负债")
+        elif avg_debt_ratio <= 60:
+            reasons.append(f"负债率{avg_debt_ratio:.1f}%负债适中")
+            
+        # 增长评价
+        if avg_profit_growth >= 15:
+            reasons.append(f"利润增长{avg_profit_growth:.1f}%高增长")
+        elif avg_profit_growth >= 5:
+            reasons.append(f"利润增长{avg_profit_growth:.1f}%稳定增长")
+            
+        # 估值评价
         if pe <= 15:
             reasons.append(f"PE{pe:.1f}倍低估")
         elif pe <= 20:
@@ -333,7 +417,7 @@ class ValueInvestmentAdapter:
         elif pb <= 2.5:
             reasons.append(f"PB{pb:.1f}倍适中")
             
-        reasons.append(f"综合评分{total_score:.1f}分")
+        reasons.append(f"价值评分{value_score:.1f}分")
         
         return "；".join(reasons)
     

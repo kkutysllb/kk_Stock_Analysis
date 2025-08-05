@@ -125,159 +125,20 @@ class TechnicalBreakthroughAdapter:
                 self.params[key] = value
     
     async def _build_screening_pipeline(self, market_cap: str, stock_pool: str, limit: int) -> List[Dict]:
-        """构建技术突破筛选管道"""
+        """构建技术突破筛选管道 - 完全对齐原始逻辑"""
         pipeline = []
         
         # 获取最新交易日期
         latest_date = await self._get_latest_trade_date()
         
-        # 构建基础筛选条件
-        match_conditions = await self._build_match_conditions(latest_date, market_cap, stock_pool)
-        
-        pipeline.extend([
-            # 第一步：基础筛选
-            {"$match": match_conditions},
-            
-            # 第二步：关联股票基本信息
-            {"$lookup": {
-                "from": "infrastructure_stock_basic",
-                "localField": "ts_code",
-                "foreignField": "ts_code",
-                "as": "stock_info"
-            }},
-            {"$unwind": {"path": "$stock_info", "preserveNullAndEmptyArrays": True}},
-            
-            # 第三步：排除ST股票
-            {"$match": await self._build_exclusion_conditions()},
-            
-            # 第四步：计算技术突破评分
-            {"$addFields": {
-                "score": {
-                    "$add": [
-                        # 基础分：站上20日线得20分
-                        self.params['base_score'],
-                        
-                        # RSI得分：45-85区间，得0-20分
-                        {"$multiply": [
-                            {"$max": [0, {"$subtract": ["$rsi_qfq_12", self.params['rsi_min']]}]}, 
-                            self.params['rsi_weight']
-                        ]},
-                        
-                        # MACD得分：MACD>0得15分
-                        {"$cond": {
-                            "if": {"$gt": ["$macd_qfq", 0]}, 
-                            "then": self.params['macd_weight'], 
-                            "else": 0
-                        }},
-                        
-                        # 成交量得分：量比每超过1得10分，最高25分
-                        {"$min": [
-                            25, 
-                            {"$multiply": [
-                                {"$max": [0, {"$subtract": ["$volume_ratio", 1]}]}, 
-                                self.params['volume_weight']
-                            ]}
-                        ]},
-                        
-                        # 涨跌幅得分：涨幅每1%得2分，最高20分
-                        {"$min": [
-                            20, 
-                            {"$max": [0, {"$multiply": ["$pct_chg", self.params['price_change_weight']]}]}
-                        ]}
-                    ]
-                },
-                
-                # 计算均线排列
-                "ma_alignment": {
-                    "$and": [
-                        {"$gt": ["$ma_qfq_5", "$ma_qfq_10"]},       # 5日线 > 10日线
-                        {"$gt": ["$ma_qfq_10", "$ma_qfq_20"]}       # 10日线 > 20日线
-                    ]
-                },
-                
-                # 计算MACD金叉
-                "macd_golden": {
-                    "$and": [
-                        {"$gt": ["$macd_dif_qfq", "$macd_dea_qfq"]},  # DIF > DEA（金叉）
-                        {"$gt": ["$macd_qfq", 0]}                     # MACD柱状线为正
-                    ]
-                },
-                
-                # 计算布林带位置
-                "bollinger_position": {
-                    "$cond": {
-                        "if": {"$gte": ["$close", "$boll_upper_qfq"]},
-                        "then": "upper",
-                        "else": {
-                            "$cond": {
-                                "if": {"$gte": ["$close", "$boll_mid_qfq"]},
-                                "then": "middle",
-                                "else": "lower"
-                            }
-                        }
-                    }
-                },
-                
-                # 突破信号判断
-                "breakthrough_signal": {
-                    "$gte": [{"$add": [
-                        self.params['base_score'],
-                        {"$multiply": [{"$max": [0, {"$subtract": ["$rsi_qfq_12", self.params['rsi_min']]}]}, self.params['rsi_weight']]},
-                        {"$cond": {"if": {"$gt": ["$macd_qfq", 0]}, "then": self.params['macd_weight'], "else": 0}},
-                        {"$min": [25, {"$multiply": [{"$max": [0, {"$subtract": ["$volume_ratio", 1]}]}, self.params['volume_weight']]}]},
-                        {"$min": [20, {"$max": [0, {"$multiply": ["$pct_chg", self.params['price_change_weight']]}]}]}
-                    ]}, self.params['breakthrough_threshold']]
-                }
-            }},
-            
-            # 第五步：选择输出字段
-            {"$project": {
-                "ts_code": 1,
-                "name": "$stock_info.name",
-                "industry": "$stock_info.industry",
-                "close": 1,
-                "pe": 1,
-                "pb": 1,
-                "pct_chg": {"$ifNull": ["$pct_chg", 0]},
-                "total_mv": {"$ifNull": ["$total_mv", 0]},
-                "score": 1,
-                
-                # 技术突破策略专用字段
-                "rsi": "$rsi_qfq_12",
-                "macd": "$macd_qfq",
-                "macd_dif": "$macd_dif_qfq",
-                "macd_dea": "$macd_dea_qfq",
-                "volume_ratio": 1,
-                "turnover_rate": 1,
-                "ma_5": "$ma_qfq_5",
-                "ma_10": "$ma_qfq_10",
-                "ma_20": "$ma_qfq_20",
-                "ma_60": "$ma_qfq_60",
-                "boll_upper": "$boll_upper_qfq",
-                "boll_middle": "$boll_mid_qfq",
-                "boll_lower": "$boll_lower_qfq",
-                "ma_alignment": 1,
-                "macd_golden": 1,
-                "bollinger_position": 1,
-                "breakthrough_signal": 1
-            }},
-            
-            # 第六步：排序和限制
-            {"$sort": {"score": -1}},
-            {"$limit": limit}
-        ])
-        
-        return pipeline
-    
-    async def _build_match_conditions(self, latest_date: str, market_cap: str, stock_pool: str) -> Dict:
-        """构建基础匹配条件"""
+        # 基础筛选条件 - 完全按照原始逻辑
         match_conditions = {
             "trade_date": latest_date,
             "close": {"$gt": 0},
             "total_mv": {"$gt": 0},
             "rsi_qfq_12": {"$gte": self.params['rsi_min'], "$lte": self.params['rsi_max']},  # RSI动能区间
             "volume_ratio": {"$gte": self.params['volume_ratio_min']},         # 量比放大
-            "turnover_rate": {"$gte": self.params['turnover_rate_min'], "$lte": self.params['turnover_rate_max']}  # 换手率适中
+            "turnover_rate": {"$gte": 1, "$lte": 15}           # 换手率适中
         }
         
         # 构建$expr条件列表
@@ -313,7 +174,7 @@ class TechnicalBreakthroughAdapter:
         elif market_cap == "small":
             match_conditions["total_mv"] = {"$lte": 1000000}
         else:
-            match_conditions["total_mv"] = {"$gte": self.params['min_market_cap']}  # 最小市值
+            match_conditions["total_mv"] = {"$gte": 500000}  # 最小5亿市值
         
         # 股票池筛选
         if stock_pool != "all":
@@ -321,20 +182,85 @@ class TechnicalBreakthroughAdapter:
             if resolved_pool:
                 match_conditions["ts_code"] = {"$in": resolved_pool}
         
-        return match_conditions
+        pipeline.extend([
+            {"$match": match_conditions},
+            
+            # 联接股票基本信息
+            {"$lookup": {
+                "from": "infrastructure_stock_basic",
+                "localField": "ts_code",
+                "foreignField": "ts_code",
+                "as": "stock_info"
+            }},
+            {"$unwind": {"path": "$stock_info", "preserveNullAndEmptyArrays": True}},
+            
+            # 排除ST股票
+            {"$match": {
+                "stock_info.name": {"$not": {"$regex": "ST|\\*ST", "$options": "i"}}
+            }},
+            
+            # 计算技术突破评分（100分制 - 完全按照原始逻辑）
+            {"$addFields": {
+                "score": {
+                    "$add": [
+                        # 基础分：站上20日线得20分
+                        20,
+                        
+                        # RSI得分：45-85区间，得0-20分
+                        {"$multiply": [{"$max": [0, {"$subtract": ["$rsi_qfq_12", 45]}]}, 0.5]},
+                        
+                        # MACD得分：MACD>0得15分
+                        {"$cond": {"if": {"$gt": ["$macd_qfq", 0]}, "then": 15, "else": 0}},
+                        
+                        # 成交量得分：量比每超过1得10分，最高25分
+                        {"$min": [25, {"$multiply": [{"$max": [0, {"$subtract": ["$volume_ratio", 1]}]}, 10]}]},
+                        
+                        # 涨跌幅得分：涨幅每1%得2分，最高20分
+                        {"$min": [20, {"$max": [0, {"$multiply": ["$pct_chg", 2]}]}]}
+                    ]
+                }
+            }},
+            
+            # 输出字段 - 完全按照原始逻辑的字段名和映射
+            {"$project": {
+                "ts_code": 1,
+                "name": "$stock_info.name",
+                "industry": "$stock_info.industry",
+                "close": 1,
+                "pe": 1,
+                "pb": 1,
+                "pct_chg": {"$ifNull": ["$pct_chg", 0]},
+                "total_mv": {"$ifNull": ["$total_mv", 0]},
+                "score": 1,
+                # 技术突破策略专用字段 - 使用原始字段名
+                "rsi": "$rsi_qfq_12",
+                "macd": "$macd_qfq",
+                "macd_signal": "$macd_dea_qfq",
+                "volume_ratio": 1,
+                "ema_20": "$ma_qfq_20",
+                "ema_50": "$ma_qfq_60",
+                "bollinger_upper": "$boll_upper_qfq",
+                "bollinger_middle": "$boll_mid_qfq",
+                "bollinger_lower": "$boll_lower_qfq",
+                "breakthrough_signal": {
+                    "$cond": {
+                        "if": {"$gte": ["$score", 70]},
+                        "then": True,
+                        "else": False
+                    }
+                }
+            }},
+            
+            {"$sort": {"score": -1}},
+            {"$limit": limit}
+        ])
+        
+        return pipeline
     
-    async def _build_exclusion_conditions(self) -> Dict:
-        """构建排除条件"""
-        conditions = {}
-        
-        # 排除ST股票
-        if self.params['exclude_st']:
-            conditions["stock_info.name"] = {"$not": {"$regex": "ST|\\*ST", "$options": "i"}}
-        
-        return conditions
+
     
     async def _process_results(self, results: List[Dict]) -> List[Dict]:
-        """处理查询结果"""
+        """处理查询结果 - 完全对齐原始逻辑的字段输出"""
         processed = []
         
         for result in results:
@@ -344,41 +270,28 @@ class TechnicalBreakthroughAdapter:
                 'industry': result.get('industry', ''),
                 
                 # 基础指标
-                'close': round(result.get('close', 0), 2),
-                'pe': round(result.get('pe', 0), 2),
-                'pb': round(result.get('pb', 0), 2),
-                'total_mv': round(result.get('total_mv', 0) / 10000, 2),  # 转换为亿元
-                'pct_chg': round(result.get('pct_chg', 0), 2),
+                'close': round(result.get('close') or 0, 2),
+                'pe': round(result.get('pe') or 0, 2),
+                'pb': round(result.get('pb') or 0, 2),
+                'total_mv': round((result.get('total_mv') or 0) / 10000, 2),  # 转换为万元
+                'pct_chg': round(result.get('pct_chg') or 0, 2),
                 
-                # 技术指标
-                'rsi': round(result.get('rsi', 0), 1),
-                'macd': round(result.get('macd', 0), 4),
-                'macd_dif': round(result.get('macd_dif', 0), 4),
-                'macd_dea': round(result.get('macd_dea', 0), 4),
-                'volume_ratio': round(result.get('volume_ratio', 0), 2),
-                'turnover_rate': round(result.get('turnover_rate', 0), 2),
-                
-                # 均线指标
-                'ma_5': round(result.get('ma_5', 0), 2),
-                'ma_10': round(result.get('ma_10', 0), 2),
-                'ma_20': round(result.get('ma_20', 0), 2),
-                'ma_60': round(result.get('ma_60', 0), 2),
-                
-                # 布林带指标
-                'boll_upper': round(result.get('boll_upper', 0), 2),
-                'boll_middle': round(result.get('boll_middle', 0), 2),
-                'boll_lower': round(result.get('boll_lower', 0), 2),
-                'bollinger_position': result.get('bollinger_position', ''),
-                
-                # 信号指标
-                'ma_alignment': result.get('ma_alignment', False),
-                'macd_golden': result.get('macd_golden', False),
+                # 技术突破策略专用字段 - 使用原始字段名
+                'rsi': round(result.get('rsi') or 0, 2),
+                'macd': round(result.get('macd') or 0, 4),
+                'macd_signal': round(result.get('macd_signal') or 0, 4),
+                'volume_ratio': round(result.get('volume_ratio') or 0, 2),
+                'ema_20': round(result.get('ema_20') or 0, 2),
+                'ema_50': round(result.get('ema_50') or 0, 2),
+                'bollinger_upper': round(result.get('bollinger_upper') or 0, 2),
+                'bollinger_middle': round(result.get('bollinger_middle') or 0, 2),
+                'bollinger_lower': round(result.get('bollinger_lower') or 0, 2),
                 'breakthrough_signal': result.get('breakthrough_signal', False),
                 
                 # 综合评分
-                'score': round(result.get('score', 0), 1),
+                'score': round(result.get('score') or 0, 2),
                 
-                # 选股理由
+                # 选股理由 - 基于实际数据生成
                 'reason': self._generate_reason(result)
             }
             processed.append(stock_info)
@@ -386,16 +299,14 @@ class TechnicalBreakthroughAdapter:
         return processed
     
     def _generate_reason(self, result: Dict) -> str:
-        """生成选股理由"""
+        """生成选股理由 - 对齐原始逻辑"""
         reasons = []
         
         pct_chg = result.get('pct_chg', 0)
         volume_ratio = result.get('volume_ratio', 0)
         rsi = result.get('rsi', 0)
+        macd = result.get('macd', 0)
         breakthrough_signal = result.get('breakthrough_signal', False)
-        macd_golden = result.get('macd_golden', False)
-        ma_alignment = result.get('ma_alignment', False)
-        bollinger_position = result.get('bollinger_position', '')
         score = result.get('score', 0)
         
         # 基础突破
@@ -413,20 +324,9 @@ class TechnicalBreakthroughAdapter:
         elif volume_ratio >= 1.5:
             reasons.append(f"温和放量{volume_ratio:.1f}倍")
         
-        # 技术信号
-        if ma_alignment:
-            reasons.append("均线多头排列")
-        
-        if macd_golden:
-            reasons.append("MACD金叉")
-        
-        if bollinger_position == "upper":
-            reasons.append("突破布林上轨")
-        elif bollinger_position == "middle":
-            reasons.append("站上布林中轨")
-        
-        if breakthrough_signal:
-            reasons.append("强突破信号")
+        # MACD信号
+        if macd > 0:
+            reasons.append("MACD多头")
         
         # RSI状态
         if 50 <= rsi <= 70:
@@ -434,7 +334,11 @@ class TechnicalBreakthroughAdapter:
         elif rsi > 70:
             reasons.append(f"RSI{rsi:.0f}强势")
         
-        reasons.append(f"技术评分{score:.0f}")
+        # 突破信号
+        if breakthrough_signal:
+            reasons.append("技术突破")
+        
+        reasons.append(f"评分{score:.0f}")
         
         return "；".join(reasons)
     

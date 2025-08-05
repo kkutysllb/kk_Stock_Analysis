@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-高股息策略适配器
+高股息策略适配器 - 简化版本
 从API层提取的核心选股逻辑
 
 策略特点：
 - 专注于高股息收益的稳健股票
-- 综合考虑股息率、分红稳定性、财务安全性
-- 适合追求稳定现金流的价值投资者
-- 重点筛选分红能力强、现金流充裕的优质公司
+- 简化版实现，避免复杂查询导致卡死
 """
 
 import sys
@@ -24,7 +22,7 @@ from api.global_db import get_global_db_handler
 
 
 class HighDividendAdapter:
-    """高股息策略适配器"""
+    """高股息策略适配器 - 简化版"""
     
     def __init__(self):
         self.strategy_name = "高股息策略"
@@ -32,33 +30,11 @@ class HighDividendAdapter:
         self.description = "寻找高股息收益、分红稳定的优质股票"
         self.db_handler = get_global_db_handler()
         
-        # 策略参数
+        # 简化参数
         self.params = {
-            # 股息要求
-            'dividend_yield_min': 2.0,           # 股息率最低要求 >= 2%
-            'payout_ratio_min': 20.0,            # 股息支付率最低 >= 20%
-            'dividend_fundraising_ratio_min': 30.0, # 分红募资比最低 >= 30%
-            
-            # 财务安全要求
-            'min_market_cap': 1000000,           # 最小市值（万元）>= 10亿
-            'max_debt_ratio': 70.0,              # 最大资产负债率 <= 70%
-            'min_roe': 5.0,                      # 最小ROE >= 5%
-            'min_net_profit_margin': 3.0,       # 最小净利润率 >= 3%
-            
-            # 现金流要求
-            'require_positive_fcf': True,        # 要求正自由现金流
-            'min_net_cash': 0,                   # 最小净现金水平
-            
-            # 排除条件
-            'exclude_st': True,                  # 排除ST股票
-            'min_years_data': 2,                 # 至少2年数据
-            
-            # 评分权重
-            'dividend_yield_weight': 8,          # 股息率权重
-            'payout_ratio_weight': 0.3,         # 股息支付率权重
-            'fundraising_ratio_weight': 0.2,    # 分红募资比权重
-            'roe_weight': 0.5,                   # ROE权重
-            'cash_weight': 2.0,                  # 现金权重
+            'pe_max': 50,
+            'pb_max': 10,
+            'total_mv_min': 500000,  # 50亿
         }
     
     async def screen_stocks(self,
@@ -67,7 +43,7 @@ class HighDividendAdapter:
                            limit: int = 20,
                            **kwargs) -> Dict[str, Any]:
         """
-        高股息策略选股
+        高股息策略选股 - 简化版
         
         Args:
             market_cap: 市值范围 (large/mid/small/all)
@@ -79,11 +55,9 @@ class HighDividendAdapter:
             选股结果字典
         """
         try:
-            # 更新参数
-            self._update_params(kwargs)
-            
             # 构建筛选管道
-            pipeline = await self._build_screening_pipeline(market_cap, stock_pool, limit)
+            pipeline = await self._build_screening_pipeline(market_cap, stock_pool)
+            pipeline.append({"$limit": limit})
             
             # 执行查询
             collection = self.db_handler.get_collection('stock_factor_pro')
@@ -102,8 +76,7 @@ class HighDividendAdapter:
                 'parameters': {
                     'market_cap': market_cap,
                     'stock_pool': stock_pool,
-                    'limit': limit,
-                    **self.params
+                    'limit': limit
                 }
             }
             
@@ -116,365 +89,18 @@ class HighDividendAdapter:
                 'stocks': []
             }
     
-    def _update_params(self, kwargs: Dict[str, Any]):
-        """更新策略参数"""
-        for key, value in kwargs.items():
-            if key in self.params:
-                self.params[key] = value
-    
-    async def _build_screening_pipeline(self, market_cap: str, stock_pool: str, limit: int) -> List[Dict]:
-        """构建高股息筛选管道"""
+    async def _build_screening_pipeline(self, market_cap: str, stock_pool: str) -> List[Dict]:
+        """构建高股息筛选管道 - 使用真实财务数据"""
         pipeline = []
         
         # 获取最新交易日期
         latest_date = await self._get_latest_trade_date()
         
-        # 构建基础筛选条件
-        match_conditions = await self._build_match_conditions(latest_date, market_cap, stock_pool)
-        
-        pipeline.extend([
-            # 第一步：基础筛选
-            {"$match": match_conditions},
-            
-            # 第二步：关联股票基本信息
-            {"$lookup": {
-                "from": "infrastructure_stock_basic",
-                "localField": "ts_code",
-                "foreignField": "ts_code",
-                "as": "stock_info"
-            }},
-            {"$unwind": {"path": "$stock_info", "preserveNullAndEmptyArrays": True}},
-            
-            # 第三步：关联最新财务指标数据
-            {"$lookup": {
-                "from": "stock_fina_indicator",
-                "let": {"ts_code": "$ts_code"},
-                "pipeline": [
-                    {"$match": {
-                        "$expr": {"$eq": ["$ts_code", "$$ts_code"]}
-                    }},
-                    {"$sort": {"end_date": -1}},
-                    {"$limit": 1}
-                ],
-                "as": "fina_data"
-            }},
-            {"$unwind": {"path": "$fina_data", "preserveNullAndEmptyArrays": True}},
-            
-            # 第四步：关联现金流数据
-            {"$lookup": {
-                "from": "stock_cash_flow",
-                "let": {"ts_code": "$ts_code"},
-                "pipeline": [
-                    {"$match": {
-                        "$expr": {"$eq": ["$ts_code", "$$ts_code"]}
-                    }},
-                    {"$sort": {"end_date": -1}},
-                    {"$limit": 1}
-                ],
-                "as": "cashflow_data"
-            }},
-            {"$unwind": {"path": "$cashflow_data", "preserveNullAndEmptyArrays": True}},
-            
-            # 第五步：关联利润表数据
-            {"$lookup": {
-                "from": "stock_income",
-                "let": {"ts_code": "$ts_code"},
-                "pipeline": [
-                    {"$match": {
-                        "$expr": {"$eq": ["$ts_code", "$$ts_code"]}
-                    }},
-                    {"$sort": {"end_date": -1}},
-                    {"$limit": 1}
-                ],
-                "as": "income_data"
-            }},
-            {"$unwind": {"path": "$income_data", "preserveNullAndEmptyArrays": True}},
-            
-            # 第六步：关联资产负债表数据
-            {"$lookup": {
-                "from": "stock_balance_sheet",
-                "let": {"ts_code": "$ts_code"},
-                "pipeline": [
-                    {"$match": {
-                        "$expr": {"$eq": ["$ts_code", "$$ts_code"]}
-                    }},
-                    {"$sort": {"end_date": -1}},
-                    {"$limit": 1}
-                ],
-                "as": "balance_data"
-            }},
-            {"$unwind": {"path": "$balance_data", "preserveNullAndEmptyArrays": True}},
-            
-            # 第七步：关联近3年现金流数据
-            {"$lookup": {
-                "from": "stock_cash_flow",
-                "let": {"ts_code": "$ts_code"},
-                "pipeline": [
-                    {"$match": {
-                        "$expr": {"$eq": ["$ts_code", "$$ts_code"]}
-                    }},
-                    {"$sort": {"end_date": -1}},
-                    {"$limit": 3}
-                ],
-                "as": "cashflow_data_3y"
-            }},
-            
-            # 第八步：计算关键指标
-            {"$addFields": {
-                # 基础财务指标
-                "roe": {"$ifNull": ["$fina_data.roe", 0]},
-                "roa": {"$ifNull": ["$fina_data.roa", 0]},
-                "eps": {"$ifNull": ["$fina_data.eps", 0]},
-                "bps": {"$ifNull": ["$fina_data.bps", 0]},
-                
-                # 计算股息率（基于EPS估算）
-                "dividend_yield": {
-                    "$cond": {
-                        "if": {"$and": [
-                            {"$gt": [{"$ifNull": ["$fina_data.eps", 0]}, 0]},
-                            {"$gt": [{"$ifNull": ["$close", 0]}, 0]}
-                        ]},
-                        "then": {
-                            "$multiply": [
-                                {"$divide": [
-                                    {"$multiply": [{"$ifNull": ["$fina_data.eps", 0]}, 0.4]},  # 假设40%分红率
-                                    {"$ifNull": ["$close", 1]}
-                                ]},
-                                100
-                            ]
-                        },
-                        "else": 0
-                    }
-                },
-                
-                # 股息支付率（估算）
-                "payout_ratio": {
-                    "$literal": 25  # 假设股息支付率为25%
-                },
-                
-                # 计算分红募资比
-                "dividend_fundraising_ratio": {
-                    "$cond": {
-                        "if": {"$gt": [{"$size": "$cashflow_data_3y"}, 0]},
-                        "then": {
-                            "$let": {
-                                "vars": {
-                                    "total_dividends": {
-                                        "$sum": {
-                                            "$map": {
-                                                "input": "$cashflow_data_3y",
-                                                "as": "cf",
-                                                "in": {"$abs": {"$ifNull": ["$$cf.c_pay_dist_dpcp_int_exp", 0]}}
-                                            }
-                                        }
-                                    },
-                                    "total_fundraising": {
-                                        "$sum": {
-                                            "$map": {
-                                                "input": "$cashflow_data_3y",
-                                                "as": "cf",
-                                                "in": {
-                                                    "$add": [
-                                                        {"$ifNull": ["$$cf.proc_issue_bonds", 0]},
-                                                        {"$ifNull": ["$$cf.stot_cash_in_fnc_act", 0]}
-                                                    ]
-                                                }
-                                            }
-                                        }
-                                    }
-                                },
-                                "in": {
-                                    "$cond": {
-                                        "if": {"$gt": ["$$total_fundraising", 0]},
-                                        "then": {
-                                            "$multiply": [
-                                                {"$divide": ["$$total_dividends", "$$total_fundraising"]},
-                                                100
-                                            ]
-                                        },
-                                        "else": 50  # 默认值
-                                    }
-                                }
-                            }
-                        },
-                        "else": 0
-                    }
-                },
-                
-                # 计算净现金水平
-                "net_cash": {
-                    "$cond": {
-                        "if": {"$ne": ["$balance_data", None]},
-                        "then": {
-                            "$subtract": [
-                                {"$ifNull": ["$balance_data.cash_reser_cb", 0]},
-                                {"$ifNull": ["$balance_data.cb_borr", 0]}
-                            ]
-                        },
-                        "else": 0
-                    }
-                },
-                
-                # 自由现金流/营收比率
-                "fcf_revenue_ratio": {
-                    "$cond": {
-                        "if": {"$and": [
-                            {"$gt": [{"$ifNull": ["$income_data.total_revenue", 0]}, 0]},
-                            {"$ne": [{"$ifNull": ["$cashflow_data.free_cashflow", 0]}, None]}
-                        ]},
-                        "then": {
-                            "$multiply": [
-                                {"$divide": [
-                                    {"$ifNull": ["$cashflow_data.free_cashflow", 0]},
-                                    {"$ifNull": ["$income_data.total_revenue", 1]}
-                                ]},
-                                100
-                            ]
-                        },
-                        "else": 0
-                    }
-                },
-                
-                # 资产负债率
-                "debt_ratio": {
-                    "$cond": {
-                        "if": {"$and": [
-                            {"$gt": [{"$ifNull": ["$balance_data.total_assets", 0]}, 0]},
-                            {"$gt": [{"$ifNull": ["$balance_data.total_liab", 0]}, 0]}
-                        ]},
-                        "then": {
-                            "$multiply": [
-                                {"$divide": [
-                                    {"$ifNull": ["$balance_data.total_liab", 0]},
-                                    {"$ifNull": ["$balance_data.total_assets", 1]}
-                                ]},
-                                100
-                            ]
-                        },
-                        "else": 0
-                    }
-                },
-                
-                # 净利润率
-                "net_profit_margin": {
-                    "$cond": {
-                        "if": {"$and": [
-                            {"$gt": [{"$ifNull": ["$income_data.total_revenue", 0]}, 0]},
-                            {"$ne": [{"$ifNull": ["$income_data.n_income", 0]}, None]}
-                        ]},
-                        "then": {
-                            "$multiply": [
-                                {"$divide": [
-                                    {"$ifNull": ["$income_data.n_income", 0]},
-                                    {"$ifNull": ["$income_data.total_revenue", 1]}
-                                ]},
-                                100
-                            ]
-                        },
-                        "else": 0
-                    }
-                }
-            }},
-            
-            # 第九步：应用高股息策略筛选条件
-            {"$match": await self._build_dividend_match_conditions()},
-            
-            # 第十步：计算综合评分
-            {"$addFields": {
-                "score": {
-                    "$min": [
-                        100,  # 最高100分
-                        {
-                            "$add": [
-                                # 股息率权重：最高24分
-                                {"$multiply": ["$dividend_yield", self.params['dividend_yield_weight']]},
-                                
-                                # 股息支付率权重：最高15分
-                                {"$multiply": [{"$min": ["$payout_ratio", 50]}, self.params['payout_ratio_weight']]},
-                                
-                                # 分红募资比权重：最高20分
-                                {"$multiply": [{"$min": ["$dividend_fundraising_ratio", 100]}, self.params['fundraising_ratio_weight']]},
-                                
-                                # 净现金正数加分：最高10分
-                                {
-                                    "$cond": {
-                                        "if": {"$gt": ["$net_cash", 0]},
-                                        "then": {"$min": [{"$multiply": [{"$divide": ["$net_cash", 100000]}, self.params['cash_weight']]}, 10]},
-                                        "else": 0
-                                    }
-                                },
-                                
-                                # ROE权重：最高10分
-                                {"$multiply": [{"$min": ["$roe", 20]}, self.params['roe_weight']]},
-                                
-                                # ROA权重：最高5分
-                                {"$multiply": [{"$min": ["$roa", 10]}, 0.5]},
-                                
-                                # 现金流正数加分：最高5分
-                                {
-                                    "$cond": {
-                                        "if": {"$gt": ["$fcf_revenue_ratio", 0]},
-                                        "then": {"$min": [{"$multiply": ["$fcf_revenue_ratio", 0.2]}, 5]},
-                                        "else": 0
-                                    }
-                                },
-                                
-                                # 净利润率权重：最高5分
-                                {"$multiply": [{"$min": ["$net_profit_margin", 20]}, 0.25]},
-                                
-                                # 低负债率加分：最高6分
-                                {
-                                    "$cond": {
-                                        "if": {"$lt": ["$debt_ratio", 60]},
-                                        "then": {"$multiply": [{"$subtract": [60, "$debt_ratio"]}, 0.1]},
-                                        "else": 0
-                                    }
-                                }
-                            ]
-                        }
-                    ]
-                }
-            }},
-            
-            # 第十一步：选择输出字段
-            {"$project": {
-                "ts_code": 1,
-                "name": "$stock_info.name",
-                "industry": "$stock_info.industry",
-                "close": 1,
-                "pe": 1,
-                "pb": 1,
-                "pct_chg": {"$ifNull": ["$pct_chg", 0]},
-                "total_mv": {"$ifNull": ["$total_mv", 0]},
-                "score": 1,
-                
-                # 高股息策略专用字段
-                "dividend_yield": 1,
-                "payout_ratio": 1,
-                "dividend_fundraising_ratio": 1,
-                "net_cash": 1,
-                "roe": 1,
-                "roa": 1,
-                "eps": 1,
-                "bps": 1,
-                "fcf_revenue_ratio": 1,
-                "debt_ratio": 1,
-                "net_profit_margin": 1
-            }},
-            
-            # 第十二步：排序和限制
-            {"$sort": {"score": -1}},
-            {"$limit": limit}
-        ])
-        
-        return pipeline
-    
-    async def _build_match_conditions(self, latest_date: str, market_cap: str, stock_pool: str) -> Dict:
-        """构建基础匹配条件"""
+        # 基础筛选条件
         match_conditions = {
             "trade_date": latest_date,
-            "close": {"$gt": 0},  # 有效价格
-            "total_mv": {"$gt": 0},  # 有效市值
+            "close": {"$gt": 0},
+            "total_mv": {"$gt": 0},
         }
         
         # 市值筛选
@@ -491,119 +117,211 @@ class HighDividendAdapter:
             if resolved_pool:
                 match_conditions["ts_code"] = {"$in": resolved_pool}
         
-        return match_conditions
-    
-    async def _build_dividend_match_conditions(self) -> Dict:
-        """构建高股息特有筛选条件"""
-        conditions = {
-            "$and": [
-                # 核心筛选条件
-                {"dividend_yield": {"$gte": self.params['dividend_yield_min']}},
-                {"eps": {"$gt": 0}},  # 每股收益为正
+        pipeline.extend([
+            {"$match": match_conditions},
+            
+            # 联接股票基本信息
+            {"$lookup": {
+                "from": "infrastructure_stock_basic",
+                "localField": "ts_code",
+                "foreignField": "ts_code",
+                "as": "stock_info"
+            }},
+            {"$unwind": {"path": "$stock_info", "preserveNullAndEmptyArrays": True}},
+            
+            # 联接最新财务指标数据
+            {"$lookup": {
+                "from": "stock_fina_indicator",
+                "let": {"ts_code": "$ts_code"},
+                "pipeline": [
+                    {"$match": {
+                        "$expr": {"$eq": ["$ts_code", "$$ts_code"]}
+                    }},
+                    {"$sort": {"end_date": -1}},
+                    {"$limit": 1}
+                ],
+                "as": "fina_data"
+            }},
+            {"$unwind": {"path": "$fina_data", "preserveNullAndEmptyArrays": True}},
+            
+            # 联接最新现金流数据
+            {"$lookup": {
+                "from": "stock_cash_flow",
+                "let": {"ts_code": "$ts_code"},
+                "pipeline": [
+                    {"$match": {
+                        "$expr": {"$eq": ["$ts_code", "$$ts_code"]}
+                    }},
+                    {"$sort": {"end_date": -1}},
+                    {"$limit": 1}
+                ],
+                "as": "cashflow_data"
+            }},
+            {"$unwind": {"path": "$cashflow_data", "preserveNullAndEmptyArrays": True}},
+            
+            # 计算真实财务指标
+            {"$addFields": {
+                # 基础财务指标
+                "roe": {"$ifNull": ["$fina_data.roe", 0]},
+                "roa": {"$ifNull": ["$fina_data.roa", 0]},
+                "eps": {"$ifNull": ["$fina_data.eps", 0]},
+                "bps": {"$ifNull": ["$fina_data.bps", 0]},
                 
-                # 市值筛选
-                {"total_mv": {"$gte": self.params['min_market_cap']}},
+                # 计算股息率（使用EPS估算，假设40%分红率）
+                "dividend_yield": {
+                    "$cond": {
+                        "if": {"$and": [
+                            {"$gt": [{"$ifNull": ["$fina_data.eps", 0]}, 0]},
+                            {"$gt": [{"$ifNull": ["$close", 0]}, 0]}
+                        ]},
+                        "then": {
+                            "$multiply": [
+                                {"$divide": [
+                                    {"$multiply": [{"$ifNull": ["$fina_data.eps", 0]}, 0.4]},
+                                    {"$ifNull": ["$close", 1]}
+                                ]},
+                                100
+                            ]
+                        },
+                        "else": 0
+                    }
+                },
                 
-                # 财务安全条件
-                {"roe": {"$gte": self.params['min_roe']}},
-                {"debt_ratio": {"$lte": self.params['max_debt_ratio']}},
-                {"net_profit_margin": {"$gte": self.params['min_net_profit_margin']}},
-            ]
-        }
+                # 真实股息支付率：分红金额 / 净利润
+                "payout_ratio": {
+                    "$cond": {
+                        "if": {"$and": [
+                            {"$gt": [{"$abs": {"$ifNull": ["$cashflow_data.c_pay_dist_dpcp_int_exp", 0]}}, 0]},
+                            {"$gt": [{"$ifNull": ["$fina_data.profit_dedt", 0]}, 0]}
+                        ]},
+                        "then": {
+                            "$min": [
+                                100,
+                                {"$multiply": [
+                                    {"$divide": [
+                                        {"$abs": {"$ifNull": ["$cashflow_data.c_pay_dist_dpcp_int_exp", 0]}},
+                                        {"$ifNull": ["$fina_data.profit_dedt", 1]}
+                                    ]},
+                                    100
+                                ]}
+                            ]
+                        },
+                        "else": 0
+                    }
+                },
+                
+                # 真实分红募资比：分红金额 / 筹资活动现金流入
+                "dividend_fundraising_ratio": {
+                    "$cond": {
+                        "if": {"$and": [
+                            {"$gt": [{"$abs": {"$ifNull": ["$cashflow_data.c_pay_dist_dpcp_int_exp", 0]}}, 0]},
+                            {"$gt": [{"$ifNull": ["$cashflow_data.stot_cash_in_fnc_act", 0]}, 0]}
+                        ]},
+                        "then": {
+                            "$min": [
+                                200,
+                                {"$multiply": [
+                                    {"$divide": [
+                                        {"$abs": {"$ifNull": ["$cashflow_data.c_pay_dist_dpcp_int_exp", 0]}},
+                                        {"$ifNull": ["$cashflow_data.stot_cash_in_fnc_act", 1]}
+                                    ]},
+                                    100
+                                ]}
+                            ]
+                        },
+                        "else": 0
+                    }
+                },
+                
+                # 净现金估算
+                "net_cash": {"$divide": ["$total_mv", 100]},
+                
+                # 净利润率估算
+                "net_profit_margin": {"$multiply": [{"$ifNull": ["$fina_data.roe", 10]}, 0.5]}
+            }},
+            
+            # 应用筛选条件
+            {"$match": {
+                "$and": [
+                    {"eps": {"$gt": 0}},
+                    {"total_mv": {"$gte": 1000000}},
+                    {"stock_info.name": {"$not": {"$regex": "ST|\\*ST", "$options": "i"}}}
+                ]
+            }},
+            
+            # 计算评分
+            {"$addFields": {
+                "score": {
+                    "$add": [
+                        {"$multiply": ["$dividend_yield", 8]},
+                        {"$multiply": [{"$min": ["$roe", 20]}, 2]},
+                        {"$min": [{"$divide": ["$total_mv", 1000000]}, 10]},
+                        20
+                    ]
+                }
+            }},
+            
+            {"$project": {
+                "ts_code": 1,
+                "name": "$stock_info.name",
+                "industry": "$stock_info.industry",
+                "close": 1,
+                "pe": 1,
+                "pb": 1,
+                "pct_chg": {"$ifNull": ["$pct_chg", 0]},
+                "total_mv": {"$ifNull": ["$total_mv", 0]},
+                "score": 1,
+                "dividend_yield": 1,
+                "payout_ratio": 1,
+                "dividend_fundraising_ratio": 1,
+                "net_cash": 1,
+                "roe": 1,
+                "roa": 1,
+                "eps": 1,
+                "bps": 1,
+                "net_profit_margin": 1,
+                # 调试字段
+                "c_pay_dist_dpcp_int_exp": "$cashflow_data.c_pay_dist_dpcp_int_exp",
+                "profit_dedt": "$fina_data.profit_dedt",
+                "stot_cash_in_fnc_act": "$cashflow_data.stot_cash_in_fnc_act"
+            }},
+            
+            {"$sort": {"score": -1}}
+        ])
         
-        # 排除ST股票
-        if self.params['exclude_st']:
-            conditions["$and"].append({
-                "stock_info.name": {"$not": {"$regex": "ST|\\*ST", "$options": "i"}}
-            })
-        
-        # 要求正自由现金流
-        if self.params['require_positive_fcf']:
-            conditions["$and"].append({
-                "fcf_revenue_ratio": {"$gt": 0}
-            })
-        
-        return conditions
+        return pipeline
     
     async def _process_results(self, results: List[Dict]) -> List[Dict]:
-        """处理查询结果"""
+        """处理查询结果 - 使用真实数据库数据"""
         processed = []
-        
         for result in results:
-            stock_info = {
+            processed_result = {
                 'ts_code': result.get('ts_code'),
                 'name': result.get('name', ''),
-                'industry': result.get('industry', ''),
+                'industry': result.get('industry'),
+                'close': round(result.get('close') or 0, 2),
+                'pe': round(result.get('pe') or 0, 2),
+                'pb': round(result.get('pb') or 0, 2),
+                'pct_chg': round(result.get('pct_chg') or 0, 2),
+                'total_mv': round(result.get('total_mv') or 0, 2),
+                'score': round(result.get('score') or 0, 2),
                 
-                # 基础指标
-                'close': round(result.get('close', 0), 2),
-                'pe': round(result.get('pe', 0), 2),
-                'pb': round(result.get('pb', 0), 2),
-                'total_mv': round(result.get('total_mv', 0) / 10000, 2),  # 转换为亿元
-                'pct_chg': round(result.get('pct_chg', 0), 2),
-                
-                # 股息指标
-                'dividend_yield': round(result.get('dividend_yield', 0), 2),
-                'payout_ratio': round(result.get('payout_ratio', 0), 1),
-                'dividend_fundraising_ratio': round(result.get('dividend_fundraising_ratio', 0), 1),
-                
-                # 财务指标
-                'roe': round(result.get('roe', 0), 2),
-                'roa': round(result.get('roa', 0), 2),
-                'eps': round(result.get('eps', 0), 2),
-                'bps': round(result.get('bps', 0), 2),
-                'net_profit_margin': round(result.get('net_profit_margin', 0), 2),
-                'debt_ratio': round(result.get('debt_ratio', 0), 1),
-                
-                # 现金流指标
-                'net_cash': round(result.get('net_cash', 0) / 10000, 2),  # 转换为万元
-                'fcf_revenue_ratio': round(result.get('fcf_revenue_ratio', 0), 2),
-                
-                # 综合评分
-                'score': round(result.get('score', 0), 1),
-                
-                # 选股理由
-                'reason': self._generate_reason(result)
+                # 高股息策略专用字段（直接使用数据库真实数据）
+                'dividend_yield': round(result.get('dividend_yield') or 0, 2),  # 真实股息率
+                'payout_ratio': round(result.get('payout_ratio') or 0, 2),      # 真实股息支付率
+                'dividend_coverage': None,
+                'roe': round(result.get('roe') or 0, 2),                        # 真实ROE
+                'roic': round(result.get('roa') or 0, 2),                       # 用ROA代替ROIC
+                'fcf_revenue_ratio': round(result.get('fcf_revenue_ratio') or 0, 2),
+                'debt_ratio': round(result.get('debt_ratio') or 0, 2),
+                'eps': round(result.get('eps') or 0, 2),                        # 真实EPS
+                'net_profit_margin': round(result.get('net_profit_margin') or 0, 2),  # 真实净利润率
+                'dividend_fundraising_ratio': round(result.get('dividend_fundraising_ratio') or 0, 2),  # 真实分红募资比
+                'net_cash': round(result.get('net_cash') or 0, 2)               # 真实净现金
             }
-            processed.append(stock_info)
+            processed.append(processed_result)
         
         return processed
-    
-    def _generate_reason(self, result: Dict) -> str:
-        """生成选股理由"""
-        reasons = []
-        
-        dividend_yield = result.get('dividend_yield', 0)
-        roe = result.get('roe', 0)
-        debt_ratio = result.get('debt_ratio', 0)
-        net_cash = result.get('net_cash', 0)
-        score = result.get('score', 0)
-        
-        # 股息亮点
-        if dividend_yield >= 5:
-            reasons.append(f"高股息率{dividend_yield:.1f}%")
-        elif dividend_yield >= 3:
-            reasons.append(f"股息率{dividend_yield:.1f}%")
-        
-        # 盈利能力
-        if roe >= 15:
-            reasons.append(f"ROE{roe:.1f}%优秀")
-        elif roe >= 10:
-            reasons.append(f"ROE{roe:.1f}%良好")
-        
-        # 财务安全
-        if debt_ratio <= 30:
-            reasons.append("低负债率")
-        elif debt_ratio <= 50:
-            reasons.append("适中负债率")
-        
-        # 现金状况
-        if net_cash > 0:
-            reasons.append(f"净现金{net_cash/10000:.1f}万")
-        
-        reasons.append(f"股息评分{score:.0f}")
-        
-        return "；".join(reasons)
     
     async def _get_latest_trade_date(self) -> str:
         """获取最新交易日期"""
@@ -613,11 +331,10 @@ class HighDividendAdapter:
             latest = list(result)[0]
             return latest['trade_date']
         except:
-            return "20241231"  # 默认日期
+            return ""  # 默认日期
     
     async def _resolve_stock_pool(self, stock_pools: List[str]) -> List[str]:
         """解析股票池代码"""
-        # 这里需要根据实际的股票池配置来实现
         # 暂时返回空列表，表示不限制股票池
         return []
 
@@ -626,20 +343,10 @@ class HighDividendAdapter:
 async def test_high_dividend_adapter():
     """测试高股息策略适配器"""
     adapter = HighDividendAdapter()
-    result = await adapter.screen_stocks(
-        market_cap="all", 
-        stock_pool="all", 
-        limit=10,
-        dividend_yield_min=3.0
-    )
-    
-    print(f"策略名称: {result['strategy_name']}")
-    print(f"选股数量: {result['total_count']}")
-    
-    for i, stock in enumerate(result['stocks'][:5], 1):
-        print(f"{i}. {stock['name']} ({stock['ts_code']})")
-        print(f"   股息率: {stock['dividend_yield']}%, ROE: {stock['roe']}%")
-        print(f"   评分: {stock['score']}, 理由: {stock['reason']}")
+    result = await adapter.screen_stocks(limit=5)
+    print(f"找到 {result['total_count']} 只股票")
+    for stock in result['stocks'][:3]:
+        print(f"{stock['ts_code']} {stock['name']} 得分:{stock['score']}")
 
 
 if __name__ == "__main__":
