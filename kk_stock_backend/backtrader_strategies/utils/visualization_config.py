@@ -12,7 +12,6 @@ try:
     HAS_MATPLOTLIB = True
 except ImportError:
     HAS_MATPLOTLIB = False
-    print("警告: matplotlib未安装，可视化功能将被禁用")
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -23,7 +22,6 @@ def setup_chinese_fonts():
     优先使用系统可用的中文字体
     """
     if not HAS_MATPLOTLIB:
-        print("⚠️ matplotlib未安装，跳过字体配置")
         return "默认字体"
         
     import os
@@ -51,7 +49,6 @@ def setup_chinese_fonts():
                 selected_font = 'PingFang SC'
             elif 'simhei' in font_path:
                 selected_font = 'SimHei'
-            print(f"✅ 找到字体文件: {font_path}")
             break
     
     if selected_path:
@@ -59,12 +56,9 @@ def setup_chinese_fonts():
         try:
             from matplotlib.font_manager import FontProperties
             prop = FontProperties(fname=selected_path)
-            print(f"✅ 成功加载字体: {selected_font}")
         except Exception as e:
-            print(f"⚠️  字体加载失败: {e}")
             selected_font = 'DejaVu Sans'
     else:
-        print("⚠️  未找到中文字体文件，使用默认字体")
         selected_font = 'DejaVu Sans'
     
     # 配置matplotlib - 使用更兼容的方式
@@ -89,9 +83,8 @@ def setup_chinese_fonts():
         else:
             CHINESE_FONT_PROP = None
             
-        print(f"✅ 中文字体配置成功: {selected_font}")
+        pass
     except Exception as e:
-        print(f"⚠️  中文字体测试失败: {e}")
         CHINESE_FONT_PROP = None
     
     return selected_font
@@ -129,13 +122,11 @@ def init_visualization():
     应在所有需要绘图的模块开始时调用
     """
     if not HAS_MATPLOTLIB:
-        print("📊 matplotlib未安装，跳过可视化配置")
         return "默认字体"
         
     font_name = setup_chinese_fonts()
     setup_plot_style()
     
-    print(f"📊 可视化配置完成，使用字体: {font_name}")
     return font_name
 
 # 自动初始化

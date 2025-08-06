@@ -1,0 +1,79 @@
+services:
+  mongo1:
+    image: mongo:5.0
+    container_name: mongo1_replica
+    hostname: mongo1
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=example
+    command: ["mongod", "--replSet", "rs0", "--keyFile", "/data/keyfile", "--auth", "--bind_ip_all"]
+    volumes:
+      - /Users/libing/kk_db/mongodb_replica/mongo1_data:/data/db
+      - /Users/libing/kk_db/mongodb_replica/mongo-keyfile:/data/keyfile:ro
+      - /Users/libing/kk_db/mongodb_replica/config1:/data/configdb
+    networks:
+      - mongo-cluster
+    healthcheck:
+      test: ["CMD","mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  mongo2:
+    image: mongo:5.0
+    container_name: mongo2_replica
+    hostname: mongo2
+    ports:
+      - "27018:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=example
+    command: ["mongod", "--replSet", "rs0", "--keyFile", "/data/keyfile", "--auth", "--bind_ip_all"]
+    volumes:
+      - /Users/libing/kk_db/mongodb_replica/mongo2_data:/data/db
+      - /Users/libing/kk_db/mongodb_replica/mongo-keyfile:/data/keyfile:ro
+      - /Users/libing/kk_db/mongodb_replica/config2:/data/configdb
+    networks:
+      - mongo-cluster
+    depends_on:
+      mongo1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD","mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  mongo3:
+    image: mongo:5.0
+    container_name: mongo3_replica
+    hostname: mongo3
+    ports:
+      - "27019:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=example
+    command: ["mongod", "--replSet", "rs0", "--keyFile", "/data/keyfile", "--auth", "--bind_ip_all"]
+    volumes:
+      - /Users/libing/kk_db/mongodb_replica/mongo3_data:/data/db
+      - /Users/libing/kk_db/mongodb_replica/mongo-keyfile:/data/keyfile:ro
+      - /Users/libing/kk_db/mongodb_replica/config3:/data/configdb
+    networks:
+      - mongo-cluster
+    depends_on:
+      mongo2:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD","mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+networks:
+  mongo-cluster:
+    driver: bridge

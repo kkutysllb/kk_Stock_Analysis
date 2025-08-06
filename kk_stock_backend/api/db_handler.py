@@ -57,6 +57,11 @@ def retry_on_connection_error(max_retries=3, delay=2):
 class DBHandler:
     """双数据库处理器，支持本地+云端同时写入"""
     
+    # 类变量：跟踪已经打印过连接信息的Worker进程
+    _logged_workers = set()
+    # 类变量：跟踪已经打印过云端禁用信息的Worker进程
+    _cloud_disabled_logged_workers = set()
+    
     def __init__(self, local_priority=True):
         """
         初始化双数据库连接
@@ -101,7 +106,12 @@ class DBHandler:
         try:
             import os
             worker_id = os.getpid()
-            self.logger.info(f"🏠 Worker{worker_id}: 连接本地数据库...")
+            
+            # 只在第一次连接时打印日志
+            if worker_id not in DBHandler._logged_workers:
+                self.logger.info(f"🏠 Worker{worker_id}: 连接本地数据库...")
+                DBHandler._logged_workers.add(worker_id)
+            
             self.local_client = MongoClient(
                 LOCAL_MONGO_URI,
                 serverSelectionTimeoutMS=5000,   # 5秒选择超时
@@ -114,7 +124,6 @@ class DBHandler:
                 retryWrites=True,
                 w=1,
                 heartbeatFrequencyMS=60000,       # 60秒心跳，减少网络负载
-                directConnection=True,            # 启用直连模式
                 appName="kk_stock_api"            # 应用名称
             )
             # 测试连接
@@ -122,14 +131,15 @@ class DBHandler:
             self.local_db = self.local_client[DB_NAME]
             self.local_available = True
             
-            # 只在主进程打印详细连接信息，避免重复日志
-            if worker_id == os.getppid() or 'UVICORN_MAIN' in os.environ:
+            # 只在第一次连接时打印成功信息
+            if worker_id in DBHandler._logged_workers and len(DBHandler._logged_workers) == 1:
                 local_info = self.local_client.server_info()
                 print(f"✅ Worker{worker_id}: 本地MongoDB连接成功")
                 print(f"📍 本地地址: 127.0.0.1:27017")
                 print(f"🔧 本地版本: {local_info['version']}")
-            else:
-                print(f"✅ Worker{worker_id}: 本地MongoDB连接成功")
+            elif worker_id in DBHandler._logged_workers:
+                # 后续worker只打印简单信息
+                pass
             
         except Exception as e:
             print(f"❌ 本地数据库连接失败: {e}")
@@ -138,14 +148,18 @@ class DBHandler:
             self.local_available = False
         
         # 生产环境禁用云端数据库连接，避免连接数过多
-        self.logger.info(f"⚠️  Worker{worker_id}: 生产环境已禁用云端数据库连接")
+        # 只在该Worker第一次连接时打印云端连接禁用信息
+        if worker_id not in DBHandler._cloud_disabled_logged_workers:
+            self.logger.info(f"⚠️  Worker{worker_id}: 生产环境已禁用云端数据库连接")
+            DBHandler._cloud_disabled_logged_workers.add(worker_id)
+        
         self.cloud_client = None
         self.cloud_db = None
         self.cloud_available = False
         
         # 连接状态总结（只在第一个worker打印）
         if self.local_available:
-            if worker_id == os.getppid() or 'UVICORN_MAIN' in os.environ:
+            if len(DBHandler._logged_workers) == 1 and len(DBHandler._cloud_disabled_logged_workers) == 1:
                 print("🎯 本地数据库模式 - 所有操作使用本地MongoDB")
                 print("💡 云端数据库已禁用，减少多worker环境下的连接开销")
         else:

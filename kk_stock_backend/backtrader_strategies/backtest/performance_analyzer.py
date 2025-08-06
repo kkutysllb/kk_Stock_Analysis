@@ -14,7 +14,6 @@ try:
     HAS_MATPLOTLIB = True
 except ImportError:
     HAS_MATPLOTLIB = False
-    print("警告: matplotlib未安装，图表功能将被禁用")
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple, Any
 import json
@@ -63,9 +62,8 @@ class PerformanceAnalyzer:
                 # 使用项目的可视化配置模块
                 init_visualization()
                 self.chinese_font = get_chinese_font()
-                self.logger.info("✅ 中文字体配置成功")
             except Exception as e:
-                self.logger.warning(f"⚠️ 中文字体配置失败: {e}")
+                pass
                 # 回退到默认配置
                 plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS', 'DejaVu Sans']
                 plt.rcParams['axes.unicode_minus'] = False
