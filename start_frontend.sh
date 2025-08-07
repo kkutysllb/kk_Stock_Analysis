@@ -36,7 +36,7 @@ PROJECT_DIR="$KK_FRONTEND_DIR"
 MAIN_PACKAGE_FILE="package.json"
 NODE_MIN_VERSION="18.0.0"
 FRONTEND_DEV_PORT="5173"
-BACKEND_API_URL="http://127.0.0.1:9001"
+BACKEND_API_URL="http://127.0.0.1:9023"
 
 # =============================================================================
 # 🎨 颜色定义

@@ -19,7 +19,7 @@ warnings.filterwarnings('ignore')
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backtest.backtest_engine import run_strategy_backtest
-from multi_trend_strategy_adapter import MultiTrendResonanceStrategyAdapter
+from strategy_adapters.multi_trend_strategy_adapter import MultiTrendResonanceStrategyAdapter
 from config import Config
 
 
@@ -34,7 +34,7 @@ def create_backtest_config() -> Config:
     
     # 回测基本配置
     config.backtest.initial_cash = 1000000.0  # 100万初始资金
-    config.backtest.start_date = "2025-01-01"  # 回测开始日期
+    config.backtest.start_date = "2020-01-01"  # 回测开始日期
     config.backtest.end_date = "2025-08-04"    # 回测结束日期
     config.backtest.commission_rate = 0.0001   # 万一手续费
     config.backtest.stamp_tax_rate = 0.001     # 千一印花税

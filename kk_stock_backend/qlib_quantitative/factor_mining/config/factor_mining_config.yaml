@@ -1,0 +1,382 @@
+data_config:
+  forward_returns:
+  - 1
+  - 5
+  - 10
+  - 20
+  index_code: 000510.CSI
+  stock_universe: csi_a500
+  test_period:
+    end_date: '2025-08-31'
+    start_date: '2025-01-01'
+  train_period:
+    end_date: '2024-06-30'
+    start_date: '2020-01-01'
+  validation_period:
+    end_date: '2024-12-31'
+    start_date: '2024-07-01'
+evaluation_config:
+  factor_metrics:
+  - ic
+  - ic_mean
+  - ic_std
+  - ic_ir
+  - rank_ic
+  - turnover
+  - max_drawdown
+  - sharpe_ratio
+  model_metrics:
+  - mse
+  - mae
+  - r2_score
+  - ic
+  - rank_corr
+  portfolio_test:
+    benchmark: 000510.CSI
+    groups: 10
+    rebalance_freq: 20D
+    transaction_cost: 0.003
+factor_config:
+  factor_analysis:
+    batch_size: 50
+    ic_threshold: 0.02
+    min_periods: 20
+  factor_categories:
+    technical_factors:
+    - turnover_rate
+    - turnover_rate_f
+    - volume_ratio
+    - bias1_bfq
+    - bias1_hfq
+    - bias1_qfq
+    - bias2_bfq
+    - bias2_hfq
+    - bias2_qfq
+    - bias3_bfq
+    - bias3_hfq
+    - bias3_qfq
+    - boll_lower_bfq
+    - boll_lower_hfq
+    - boll_lower_qfq
+    - boll_mid_bfq
+    - boll_mid_hfq
+    - boll_mid_qfq
+    - boll_upper_bfq
+    - boll_upper_hfq
+    - boll_upper_qfq
+    - cci_bfq
+    - cci_hfq
+    - cci_qfq
+    - dfma_dif_bfq
+    - dfma_dif_hfq
+    - dfma_dif_qfq
+    - dfma_difma_bfq
+    - dfma_difma_hfq
+    - dfma_difma_qfq
+    - ema_bfq_10
+    - ema_bfq_20
+    - ema_bfq_250
+    - ema_bfq_30
+    - ema_bfq_5
+    - ema_bfq_60
+    - ema_bfq_90
+    - ema_hfq_10
+    - ema_hfq_20
+    - ema_hfq_250
+    - ema_hfq_30
+    - ema_hfq_5
+    - ema_hfq_60
+    - ema_hfq_90
+    - ema_qfq_10
+    - ema_qfq_20
+    - ema_qfq_250
+    - ema_qfq_30
+    - ema_qfq_5
+    - ema_qfq_60
+    - ema_qfq_90
+    - expma_12_bfq
+    - expma_12_hfq
+    - expma_12_qfq
+    - expma_50_bfq
+    - expma_50_hfq
+    - expma_50_qfq
+    - kdj_bfq
+    - kdj_d_bfq
+    - kdj_d_hfq
+    - kdj_d_qfq
+    - kdj_hfq
+    - kdj_k_bfq
+    - kdj_k_hfq
+    - kdj_k_qfq
+    - kdj_qfq
+    - ma_bfq_10
+    - ma_bfq_20
+    - ma_bfq_250
+    - ma_bfq_30
+    - ma_bfq_5
+    - ma_bfq_60
+    - ma_bfq_90
+    - ma_hfq_10
+    - ma_hfq_20
+    - ma_hfq_250
+    - ma_hfq_30
+    - ma_hfq_5
+    - ma_hfq_60
+    - ma_hfq_90
+    - ma_mass_bfq
+    - ma_mass_hfq
+    - ma_mass_qfq
+    - ma_qfq_10
+    - ma_qfq_20
+    - ma_qfq_250
+    - ma_qfq_30
+    - ma_qfq_5
+    - ma_qfq_60
+    - ma_qfq_90
+    - macd_bfq
+    - macd_dea_bfq
+    - macd_dea_hfq
+    - macd_dea_qfq
+    - macd_dif_bfq
+    - macd_dif_hfq
+    - macd_dif_qfq
+    - macd_hfq
+    - macd_qfq
+    - madpo_bfq
+    - madpo_hfq
+    - madpo_qfq
+    - maemv_bfq
+    - maemv_hfq
+    - maemv_qfq
+    - maroc_bfq
+    - maroc_hfq
+    - maroc_qfq
+    - mass_bfq
+    - mass_hfq
+    - mass_qfq
+    - mtmma_bfq
+    - mtmma_hfq
+    - mtmma_qfq
+    - psyma_bfq
+    - psyma_hfq
+    - psyma_qfq
+    - rsi_bfq_12
+    - rsi_bfq_24
+    - rsi_bfq_6
+    - rsi_hfq_12
+    - rsi_hfq_24
+    - rsi_hfq_6
+    - rsi_qfq_12
+    - rsi_qfq_24
+    - rsi_qfq_6
+    - trma_bfq
+    - trma_hfq
+    - trma_qfq
+    - adj_factor
+    - amount
+    - asi_bfq
+    - asi_hfq
+    - asi_qfq
+    - asit_bfq
+    - asit_hfq
+    - asit_qfq
+    - atr_bfq
+    - atr_hfq
+    - atr_qfq
+    - bbi_bfq
+    - bbi_hfq
+    - bbi_qfq
+    - brar_ar_bfq
+    - brar_ar_hfq
+    - brar_ar_qfq
+    - brar_br_bfq
+    - brar_br_hfq
+    - brar_br_qfq
+    - change
+    - circ_mv
+    - close
+    - close_hfq
+    - close_qfq
+    - cr_bfq
+    - cr_hfq
+    - cr_qfq
+    - dmi_adx_bfq
+    - dmi_adx_hfq
+    - dmi_adx_qfq
+    - dmi_adxr_bfq
+    - dmi_adxr_hfq
+    - dmi_adxr_qfq
+    - dmi_mdi_bfq
+    - dmi_mdi_hfq
+    - dmi_mdi_qfq
+    - dmi_pdi_bfq
+    - dmi_pdi_hfq
+    - dmi_pdi_qfq
+    - downdays
+    - dpo_bfq
+    - dpo_hfq
+    - dpo_qfq
+    - dv_ratio
+    - dv_ttm
+    - emv_bfq
+    - emv_hfq
+    - emv_qfq
+    - float_share
+    - free_share
+    - high
+    - high_hfq
+    - high_qfq
+    - ktn_down_bfq
+    - ktn_down_hfq
+    - ktn_down_qfq
+    - ktn_mid_bfq
+    - ktn_mid_hfq
+    - ktn_mid_qfq
+    - ktn_upper_bfq
+    - ktn_upper_hfq
+    - ktn_upper_qfq
+    - low
+    - low_hfq
+    - low_qfq
+    - lowdays
+    - mfi_bfq
+    - mfi_hfq
+    - mfi_qfq
+    - mtm_bfq
+    - mtm_hfq
+    - mtm_qfq
+    - obv_bfq
+    - obv_hfq
+    - obv_qfq
+    - open
+    - open_hfq
+    - open_qfq
+    - pb
+    - pct_chg
+    - pe
+    - pe_ttm
+    - pre_close
+    - ps
+    - ps_ttm
+    - psy_bfq
+    - psy_hfq
+    - psy_qfq
+    - roc_bfq
+    - roc_hfq
+    - roc_qfq
+    - taq_down_bfq
+    - taq_down_hfq
+    - taq_down_qfq
+    - taq_mid_bfq
+    - taq_mid_hfq
+    - taq_mid_qfq
+    - taq_up_bfq
+    - taq_up_hfq
+    - taq_up_qfq
+    - topdays
+    - total_mv
+    - total_share
+    - trade_date
+    - trix_bfq
+    - trix_hfq
+    - trix_qfq
+    - ts_code
+    - updays
+    - vol
+    - vr_bfq
+    - vr_hfq
+    - vr_qfq
+    - wr1_bfq
+    - wr1_hfq
+    - wr1_qfq
+    - wr_bfq
+    - wr_hfq
+    - wr_qfq
+    - xsii_td1_bfq
+    - xsii_td1_hfq
+    - xsii_td1_qfq
+    - xsii_td2_bfq
+    - xsii_td2_hfq
+    - xsii_td2_qfq
+    - xsii_td3_bfq
+    - xsii_td3_hfq
+    - xsii_td3_qfq
+    - xsii_td4_bfq
+    - xsii_td4_hfq
+    - xsii_td4_qfq
+  preprocessing:
+    missing_value: forward_fill
+    outlier_treatment: winsorize
+    standardization: zscore
+    winsorize_limits:
+    - 0.01
+    - 0.99
+model_config:
+  models:
+    ensemble:
+    - VotingRegressor
+    - StackingRegressor
+    - BaggingRegressor
+    linear:
+    - Ridge
+    - Lasso
+    - ElasticNet
+    - LinearRegression
+    neural_network:
+    - MLP
+    - LSTM
+    - GRU
+    tree_based:
+    - XGBoost
+    - LightGBM
+    - RandomForest
+    - ExtraTrees
+  training:
+    cv_folds: 5
+    cv_method: time_series
+    early_stopping:
+      min_delta: 0.001
+      patience: 10
+    hyperopt_method: bayesian
+    hyperopt_trials: 100
+    lr_scheduler:
+      factor: 0.5
+      patience: 5
+      type: reduce_on_plateau
+storage_config:
+  cache:
+    enabled: true
+    ttl: 3600
+  collections:
+    evaluations: factor_evaluations
+    factors: factors
+    models: models
+    results: mining_results
+  database:
+    db_name: factor_mining
+    host: localhost
+    port: 27017
+  model_storage:
+    format: pickle
+    path: ./models/factor_mining/
+strategy_config:
+  stock_selection:
+    method: factor_score
+    min_score: 0.6
+    top_k: 50
+  trading_frequency:
+    max_turnover: 0.3
+    min_position_change: 0.05
+    rebalance_period: 20D
+  trading_signals:
+    entry_threshold: 0.7
+    exit_threshold: 0.3
+    hold_period: 20
+system_config:
+  logging:
+    format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level: INFO
+  parallel:
+    backend: loky
+    n_jobs: -1
+  random_seed: 42

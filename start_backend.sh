@@ -37,7 +37,7 @@ PYTHON_VERSION="3.11"
 PROJECT_DIR="$KK_BACKEND_DIR"
 MAIN_FILE="api/main.py"
 DEFAULT_HOST="0.0.0.0"
-DEFAULT_PORT="9001"
+DEFAULT_PORT="9023"
 
 # =============================================================================
 # 🎨 颜色定义
