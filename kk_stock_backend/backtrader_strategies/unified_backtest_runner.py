@@ -25,14 +25,24 @@ from backtrader_strategies.backtest.backtest_engine import BacktestEngine
 from backtrader_strategies.config import Config
 from backtrader_strategies.strategy_adapters import STRATEGY_ADAPTERS, STRATEGY_TYPES
 
-# 导入策略实现（目前只有价值投资策略）
-from backtrader_strategies.strategies.value_investment_strategy import ValueInvestmentStrategy
+# 导入量化策略实现（根据分层架构，只导入4个量化策略）
+# TODO: 按优先级顺序实现4个量化策略
+# from backtrader_strategies.strategies.technical_breakthrough_strategy import TechnicalBreakthroughStrategy
+# from backtrader_strategies.strategies.momentum_breakthrough_strategy import MomentumBreakthroughStrategy
+# from backtrader_strategies.strategies.oversold_rebound_strategy import OversoldReboundStrategy
+# from backtrader_strategies.strategies.limit_up_leader_strategy import LimitUpLeaderStrategy
 
 
 class UnifiedBacktestRunner:
     """
-    统一回测器
-    支持8大策略的统一回测框架
+    量化策略统一回测器
+    支持4大量化策略的统一回测框架
+    
+    量化策略列表（按适用性排序）:
+    1. 技术突破策略 (95% 量化适用性)
+    2. 动量突破策略 (90% 量化适用性) 
+    3. 超跌反弹策略 (85% 量化适用性)
+    4. 连板龙头策略 (80% 量化适用性)
     """
     
     def __init__(self):
@@ -42,41 +52,29 @@ class UnifiedBacktestRunner:
         self.backtest_engine = None
         self.strategy = None
         
-        # 支持的策略映射（策略适配器名称 -> 策略实现类）
+        # 量化策略实现映射（仅包含4个量化策略）
         self.strategy_implementations = {
-            'value_investment_adapter': ValueInvestmentStrategy,
-            # TODO: 其他7大策略的实现类将在后续添加
-            # 'growth_stock_adapter': GrowthStockStrategy,
-            # 'momentum_breakthrough_adapter': MomentumBreakthroughStrategy,
-            # 'high_dividend_adapter': HighDividendStrategy,
-            # 'technical_breakthrough_adapter': TechnicalBreakthroughStrategy,
-            # 'oversold_rebound_adapter': OversoldReboundStrategy,
-            # 'limit_up_leader_adapter': LimitUpLeaderStrategy,
-            # 'fund_flow_tracking_adapter': FundFlowTrackingStrategy,
+            # 按量化适用性排序，优先实现
+            # 'technical_breakthrough_adapter': TechnicalBreakthroughStrategy,      # 95% 量化适用性 - 优先级1
+            # 'momentum_breakthrough_adapter': MomentumBreakthroughStrategy,        # 90% 量化适用性 - 优先级2
+            # 'oversold_rebound_adapter': OversoldReboundStrategy,                  # 85% 量化适用性 - 优先级3
+            # 'limit_up_leader_adapter': LimitUpLeaderStrategy,                     # 80% 量化适用性 - 优先级4
         }
         
-        # 8大策略序号映射（按重要性和完成度排序）
+        # 4大量化策略序号映射（按量化适用性排序）
         self.strategy_order = [
-            'value_investment_adapter',      # 1. 价值投资策略
-            'growth_stock_adapter',          # 2. 成长股策略  
-            'momentum_breakthrough_adapter', # 3. 动量突破策略
-            'high_dividend_adapter',         # 4. 高股息策略
-            'technical_breakthrough_adapter',# 5. 技术突破策略
-            'oversold_rebound_adapter',      # 6. 超跌反弹策略
-            'limit_up_leader_adapter',       # 7. 连板龙头策略
-            'fund_flow_tracking_adapter',    # 8. 融资追踪策略
+            'technical_breakthrough_adapter',# 1. 技术突破策略 (95% 量化适用性)
+            'momentum_breakthrough_adapter', # 2. 动量突破策略 (90% 量化适用性)
+            'oversold_rebound_adapter',      # 3. 超跌反弹策略 (85% 量化适用性)
+            'limit_up_leader_adapter',       # 4. 连板龙头策略 (80% 量化适用性)
         ]
         
-        # 策略友好名称映射
+        # 量化策略友好名称映射
         self.strategy_display_names = {
-            'value_investment_adapter': '价值投资策略',
-            'growth_stock_adapter': '成长股策略',
-            'momentum_breakthrough_adapter': '动量突破策略',
-            'high_dividend_adapter': '高股息策略',
             'technical_breakthrough_adapter': '技术突破策略',
+            'momentum_breakthrough_adapter': '动量突破策略',
             'oversold_rebound_adapter': '超跌反弹策略',
             'limit_up_leader_adapter': '连板龙头策略',
-            'fund_flow_tracking_adapter': '融资追踪策略',
         }
         
         # 序号到策略的映射
@@ -172,7 +170,7 @@ class UnifiedBacktestRunner:
         config.backtest.min_commission = kwargs.get('min_commission', 5.0)       # 最低5元手续费
         
         # 策略配置
-        config.strategy.max_positions = kwargs.get('max_positions', 20)
+        config.strategy.max_positions = kwargs.get('max_positions', 10)
         config.strategy.max_single_position = kwargs.get('max_single_position', 0.08)
         config.strategy.stop_loss_pct = kwargs.get('stop_loss_pct', -0.15)
         config.strategy.take_profit_pct = kwargs.get('take_profit_pct', 0.30)
@@ -189,7 +187,7 @@ class UnifiedBacktestRunner:
         config.backtest.save_performance = True
         
         # 基准配置 - 解析基准输入
-        benchmark_input = kwargs.get('benchmark', '沪深300')  # 默认沪深300
+        benchmark_input = kwargs.get('benchmark', '1')  # 默认上证指数（序号1）
         config.backtest.benchmark = self.resolve_benchmark(benchmark_input)
         
         # 数据配置
@@ -212,6 +210,67 @@ class UnifiedBacktestRunner:
         self.logger.info(f"   基准指数: {benchmark_display}")
         
         return config
+    
+    def resolve_strategy_type(self, strategy_input: str) -> str:
+        """
+        解析策略类型输入，支持序号和策略名称
+        
+        Args:
+            strategy_input: 策略输入（序号1-8或策略名称）
+            
+        Returns:
+            策略类型名称
+        """
+        # 如果是数字，转换为策略名称
+        if strategy_input.isdigit():
+            strategy_name = self.strategy_by_number.get(strategy_input)
+            if strategy_name is None:
+                valid_numbers = list(self.strategy_by_number.keys())
+                raise ValueError(f"不支持的策略序号: {strategy_input}，可用序号: {valid_numbers}")
+            return strategy_name
+        
+        # 如果是策略名称，直接验证
+        if strategy_input in self.strategy_display_names:
+            return strategy_input
+        
+        # 检查是否是中文显示名称
+        for strategy_type, display_name in self.strategy_display_names.items():
+            if strategy_input == display_name:
+                return strategy_type
+        
+        # 都不匹配
+        available = list(self.strategy_display_names.keys())
+        raise ValueError(f"不支持的策略类型: {strategy_input}，可用策略: {available}")
+    
+    def resolve_benchmark(self, benchmark_input: str) -> str:
+        """
+        解析基准指数输入，支持序号、中文名称和指数代码
+        
+        Args:
+            benchmark_input: 基准输入（序号1-8、中文名称或指数代码）
+            
+        Returns:
+            基准指数代码
+        """
+        # 如果是数字，转换为指数代码
+        if benchmark_input.isdigit():
+            benchmark_code = self.benchmark_by_number.get(benchmark_input)
+            if benchmark_code is None:
+                valid_numbers = list(self.benchmark_by_number.keys())
+                raise ValueError(f"不支持的基准序号: {benchmark_input}，可用序号: {valid_numbers}")
+            return benchmark_code
+        
+        # 如果是中文名称，转换为指数代码
+        if benchmark_input in self.benchmark_indices:
+            return self.benchmark_indices[benchmark_input]
+        
+        # 如果已经是指数代码，直接返回
+        if benchmark_input in self.benchmark_indices.values():
+            return benchmark_input
+        
+        # 都不匹配，使用默认值
+        self.logger.warning(f"无法识别基准: {benchmark_input}，使用默认基准: 沪深300")
+        return self.benchmark_indices['沪深300']
     
     def list_available_strategies(self) -> Dict[str, Any]:
         """
@@ -240,16 +299,12 @@ class UnifiedBacktestRunner:
         return strategies_info
     
     def _get_strategy_description(self, strategy_type: str) -> str:
-        """获取策略描述"""
+        """获取量化策略描述"""
         descriptions = {
-            'value_investment_adapter': '寻找低估值、高ROE、稳定增长的优质股票，适合长线价值投资',
-            'growth_stock_adapter': '基于成长性指标选择高成长潜力股票，关注营收和净利润增长',
-            'momentum_breakthrough_adapter': '捕捉技术指标突破信号，追踪趋势动量',
-            'high_dividend_adapter': '专注高股息率、分红稳定的股票，适合稳健投资',
-            'technical_breakthrough_adapter': '基于多种技术指标的综合突破形态识别',
-            'oversold_rebound_adapter': '捕捉超跌股票的反弹机会，短期交易策略',
-            'limit_up_leader_adapter': '追踪涨停板龙头股票，捕捉强势行情',
-            'fund_flow_tracking_adapter': '基于资金流向和融资融券数据的跟踪策略',
+            'technical_breakthrough_adapter': '基于多种技术指标的综合突破形态识别，95%量化适用性',
+            'momentum_breakthrough_adapter': '捕捉技术指标突破信号，追踪趋势动量，90%量化适用性',
+            'oversold_rebound_adapter': '捕捉超跌股票的反弹机会，短期交易策略，85%量化适用性',
+            'limit_up_leader_adapter': '追踪涨停板龙头股票，捕捉强势行情，80%量化适用性',
         }
         return descriptions.get(strategy_type, '暂无描述')
     
@@ -418,6 +473,15 @@ class UnifiedBacktestRunner:
             self.backtest_engine.set_strategy(self.strategy)
             self.logger.info(f"🎯 策略设置完成")
             
+            # 5.1 从策略参数更新配置
+            strategy_info = self.strategy.get_strategy_info()
+            if 'max_single_position' in strategy_info:
+                self.config.strategy.max_single_position = strategy_info['max_single_position']
+                self.logger.info(f"📊 从策略更新配置: max_single_position = {strategy_info['max_single_position']:.1%}")
+            if 'max_positions' in strategy_info:
+                self.config.strategy.max_positions = strategy_info['max_positions']
+                self.logger.info(f"📊 从策略更新配置: max_positions = {strategy_info['max_positions']}")
+            
             # 6. 加载数据（策略适配器选股 + 数据加载）
             self.logger.info(f"📊 开始加载数据和选股...")
             self.backtest_engine.load_data(
@@ -449,8 +513,8 @@ class UnifiedBacktestRunner:
                 'start_time': start_time.strftime('%Y-%m-%d %H:%M:%S'),
                 'end_time': end_time.strftime('%Y-%m-%d %H:%M:%S'),
                 'duration_seconds': duration,
-                'strategy_type': strategy_type,
-                'strategy_display_name': self.strategy_display_names.get(strategy_type, strategy_type)
+                'strategy_type': resolved_strategy_type,
+                'strategy_display_name': self.strategy_display_names.get(resolved_strategy_type, resolved_strategy_type)
             }
             
             return result
@@ -493,7 +557,7 @@ class UnifiedBacktestRunner:
         print(f"\n🎯 策略信息:")
         print(f"   策略版本: {strategy_info.get('strategy_version', 'N/A')}")
         print(f"   最大持仓: {strategy_info.get('max_positions', 'N/A')}只")
-        print(f"   单股仓位: {strategy_info.get('max_single_weight', 0):.1%}")
+        print(f"   单股仓位: {strategy_info.get('max_single_position', 0):.1%}")
         print(f"   买入信号: {strategy_info.get('buy_signals_count', 0)}次")
         print(f"   卖出信号: {strategy_info.get('sell_signals_count', 0)}次")
         
@@ -644,16 +708,16 @@ def create_argument_parser():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用示例:
-  # 使用序号运行价值投资策略，对比沪深300基准
-  python unified_backtest_runner.py --strategy 1 --benchmark 2 --start-date 2023-01-01 --end-date 2023-12-31
+  # 使用序号运行技术突破策略，对比上证指数基准
+  python unified_backtest_runner.py --strategy 1 --benchmark 1 --start-date 2023-01-01 --end-date 2023-12-31
   
   # 使用策略代码和中文基准名称
-  python unified_backtest_runner.py --strategy value_investment_adapter --benchmark 中证500 --start-date 2024-01-01 --end-date 2024-12-31
+  python unified_backtest_runner.py --strategy technical_breakthrough_adapter --benchmark 沪深300 --start-date 2024-01-01 --end-date 2024-12-31
   
-  # 使用自定义参数运行回测
-  python unified_backtest_runner.py --strategy 1 --benchmark 1 --start-date 2024-01-01 --end-date 2024-12-31 --initial-cash 2000000 --max-positions 15
+  # 使用自定义参数运行动量突破策略
+  python unified_backtest_runner.py --strategy 2 --benchmark 1 --start-date 2024-01-01 --end-date 2024-12-31 --initial-cash 2000000 --max-positions 15
   
-  # 列出所有可用策略和基准
+  # 列出所有可用量化策略和基准
   python unified_backtest_runner.py --list-strategies
   python unified_backtest_runner.py --list-benchmarks
         """
@@ -661,7 +725,7 @@ def create_argument_parser():
     
     parser.add_argument('--strategy', '-s', 
                        type=str,
-                       help='选择策略类型（可以使用序号1-8或策略代码名称）')
+                       help='选择量化策略类型（可以使用序号1-4或策略代码名称）')
     
     parser.add_argument('--start-date', '-sd',
                        type=str,
@@ -678,8 +742,8 @@ def create_argument_parser():
     
     parser.add_argument('--max-positions', '-mp',
                        type=int,
-                       default=20,
-                       help='最大持仓数量 (默认: 20)')
+                       default=10,
+                       help='最大持仓数量 (默认: 10)')
     
     parser.add_argument('--max-single-position', '-msp',
                        type=float,
@@ -696,10 +760,15 @@ def create_argument_parser():
                        default=0.30,
                        help='止盈比例 (默认: 0.30)')
     
+    parser.add_argument('--cash-reserve-ratio', '-crr',
+                       type=float,
+                       default=0.20,
+                       help='现金储备比例 (默认: 0.20)')
+    
     parser.add_argument('--benchmark', '-b',
                        type=str,
-                       default='2',
-                       help='基准指数 (可以使用序号1-8、中文名称或指数代码，默认: 2=沪深300)')
+                       default='1',
+                       help='基准指数 (可以使用序号1-8、中文名称或指数代码，默认: 1=上证指数)')
     
     parser.add_argument('--log-level',
                        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
@@ -738,14 +807,14 @@ def main():
     runner.setup_logging(log_level=args.log_level)
     
     try:
-        # 列出策略
+        # 列出量化策略
         if args.list_strategies:
-            print("\n🎯 8大量化策略列表:")
+            print("\n🤖 4大量化策略列表:")
             print("=" * 80)
             strategies_info = runner.list_available_strategies()
             
             for strategy_type, info in strategies_info.items():
-                status = "✅ 已实现" if info['implemented'] else "❌ 未实现"
+                status = "✅ 已实现" if info['implemented'] else "🚧 待实现"
                 number = info['number']
                 print(f"\n{number}. {info['display_name']}")
                 print(f"   策略代码: {strategy_type}")
@@ -754,10 +823,10 @@ def main():
                 print("-" * 80)
             
             print(f"\n💡 使用方法:")
-            print(f"   # 使用序号运行策略")
+            print(f"   # 使用序号运行技术突破策略")
             print(f"   python unified_backtest_runner.py --strategy 1 --start-date 2024-01-01 --end-date 2024-12-31")
-            print(f"   # 使用策略代码运行")
-            print(f"   python unified_backtest_runner.py --strategy value_investment_adapter --start-date 2024-01-01 --end-date 2024-12-31")
+            print(f"   # 使用策略代码运行动量突破策略")
+            print(f"   python unified_backtest_runner.py --strategy momentum_breakthrough_adapter --start-date 2024-01-01 --end-date 2024-12-31")
             print("=" * 80)
             
             return
@@ -825,6 +894,7 @@ def main():
             max_single_position=args.max_single_position,
             stop_loss_pct=args.stop_loss,
             take_profit_pct=args.take_profit,
+            cash_reserve_ratio=args.cash_reserve_ratio,
             benchmark=args.benchmark,
             max_stocks=args.max_stocks
         )

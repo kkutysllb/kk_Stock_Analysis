@@ -8,8 +8,3 @@
 __version__ = "1.0.0"
 __author__ = "KK量化团队"
 
-from .value_investment_strategy import ValueInvestmentStrategy
-
-__all__ = [
-    'ValueInvestmentStrategy'
-]

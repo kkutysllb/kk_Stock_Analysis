@@ -681,6 +681,8 @@ class FactorAnalyzer:
             # 标准化 - 对所有数值列进行标准化，排除索引列
             factor_columns = [col for col in df.columns if col not in ['trade_date', 'stock_code', '_id']]
             if factor_columns:
+                # 在标准化前处理无穷大值和极值
+                df = self._clean_numeric_data(df, factor_columns)
                 df[factor_columns] = self.scaler.fit_transform(df[factor_columns])
             
             self.logger.info(f"📊 因子数据预处理完成: {df.shape}")
@@ -725,6 +727,63 @@ class FactorAnalyzer:
             df[col] = df[col].clip(lower=lower, upper=upper)
         
         return df
+    
+    def _clean_numeric_data(self, df: pd.DataFrame, factor_columns: List[str]) -> pd.DataFrame:
+        """
+        清理数值数据，处理无穷大值和极值
+        
+        Args:
+            df: 数据DataFrame
+            factor_columns: 需要清理的因子列
+            
+        Returns:
+            清理后的DataFrame
+        """
+        try:
+            for col in factor_columns:
+                if col not in df.columns:
+                    continue
+                
+                # 1. 替换无穷大值为NaN
+                df[col] = df[col].replace([np.inf, -np.inf], np.nan)
+                
+                # 2. 处理极值（超出float64安全范围的值）
+                # float64的安全范围大约是 -1.7e308 到 1.7e308
+                safe_max = 1e100  # 使用更保守的阈值
+                safe_min = -1e100
+                
+                # 将超出安全范围的值设为NaN
+                df.loc[df[col] > safe_max, col] = np.nan
+                df.loc[df[col] < safe_min, col] = np.nan
+                
+                # 3. 检查是否还有无效值
+                if pd.isna(df[col]).all():
+                    # 如果整列都是无效值，用0填充
+                    df[col] = 0.0
+                    self.logger.warning(f"⚠️ 因子 {col} 全部为无效值，已用0填充")
+                elif pd.isna(df[col]).any():
+                    # 有部分无效值，用中位数填充
+                    median_value = df[col].median()
+                    if pd.isna(median_value):
+                        median_value = 0.0
+                    df[col] = df[col].fillna(median_value)
+                    invalid_ratio = pd.isna(df[col]).sum() / len(df[col])
+                    if invalid_ratio > 0.1:  # 如果超过10%的值无效，记录警告
+                        self.logger.warning(f"⚠️ 因子 {col} 有 {invalid_ratio:.1%} 的无效值已被填充")
+                
+                # 4. 最终检查数据类型
+                if not pd.api.types.is_numeric_dtype(df[col]):
+                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
+            
+            return df
+            
+        except Exception as e:
+            self.logger.error(f"❌ 数值数据清理失败: {e}")
+            # 如果清理失败，至少确保没有无穷大值
+            for col in factor_columns:
+                if col in df.columns:
+                    df[col] = df[col].replace([np.inf, -np.inf], 0.0)
+            return df
     
     def calculate_forward_returns(self, 
                                 stock_codes: List[str],

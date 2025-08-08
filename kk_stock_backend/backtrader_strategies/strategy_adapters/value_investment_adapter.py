@@ -87,8 +87,8 @@ class ValueInvestmentAdapter:
             选股结果字典
         """
         try:
-            # 构建筛选管道
-            pipeline = await self._build_screening_pipeline(market_cap, stock_pool)
+            # 构建筛选管道，传递时间参数
+            pipeline = await self._build_screening_pipeline(market_cap, stock_pool, trade_date)
             
             # 执行查询
             collection = self.db_handler.get_collection('stock_factor_pro')
@@ -122,16 +122,19 @@ class ValueInvestmentAdapter:
                 'timestamp': datetime.now().isoformat()
             }
     
-    async def _build_screening_pipeline(self, market_cap: str, stock_pool: str) -> List[Dict]:
+    async def _build_screening_pipeline(self, market_cap: str, stock_pool: str, trade_date: str = None) -> List[Dict]:
         """构建价值投资筛选管道"""
         pipeline = []
         
-        # 获取最新交易日期
-        latest_date = await self._get_latest_trade_date()
+        # 使用传入的交易日期，如果没有则获取最新交易日期
+        if trade_date:
+            target_date = trade_date.replace('-', '')  # 转换格式：2020-01-01 -> 20200101
+        else:
+            target_date = await self._get_latest_trade_date()
         
         # 第一阶段：基础筛选条件
         match_conditions = {
-            "trade_date": latest_date,
+            "trade_date": target_date,
             "pe": {"$gt": 0, "$lte": self.params['pe_max']},
             "pb": {"$gt": 0, "$lte": self.params['pb_max']},
             "pe_ttm": {"$gt": self.params['pe_ttm_min']},
@@ -162,7 +165,7 @@ class ValueInvestmentAdapter:
             # 第一步：匹配基础条件
             {"$match": match_conditions},
             
-            # 第二步：关联股票基本信息
+            # 第二步：关联股票基本信息并过滤上市时间
             {"$lookup": {
                 "from": "infrastructure_stock_basic",
                 "localField": "ts_code",
@@ -171,6 +174,16 @@ class ValueInvestmentAdapter:
             }},
             {"$unwind": {"path": "$stock_info", "preserveNullAndEmptyArrays": True}},
             
+            # 过滤：确保股票在回测日期时已经上市（防止时间穿越）
+            {"$match": {
+                "$expr": {
+                    "$or": [
+                        {"$eq": ["$stock_info.list_date", None]},  # 如果没有上市日期数据，保留
+                        {"$lte": ["$stock_info.list_date", target_date]}  # 上市日期 <= 回测日期
+                    ]
+                }
+            }},
+            
             # 第三步：关联历史财务指标
             {"$lookup": {
                 "from": "stock_fina_indicator",
@@ -178,10 +191,7 @@ class ValueInvestmentAdapter:
                 "pipeline": [
                     {"$match": {
                         "$expr": {"$eq": ["$ts_code", "$$stock_code"]},
-                        "end_date": {
-                            "$gte": "20230101",  # 过去2年的财报数据
-                            "$lte": "20241231"
-                        },
+                        "end_date": self._calculate_financial_date_range(trade_date or target_date),
                         "roe": {"$exists": True, "$ne": None, "$gt": 0}
                     }},
                     {"$sort": {"end_date": -1}},
@@ -430,6 +440,39 @@ class ValueInvestmentAdapter:
         reasons.append(f"价值评分{value_score:.1f}分")
         
         return "；".join(reasons)
+    
+    def _calculate_financial_date_range(self, date_str: str) -> Dict[str, str]:
+        """
+        根据回测日期动态计算财务数据查询范围
+        
+        Args:
+            date_str: 日期字符串，格式为 YYYY-MM-DD 或 YYYYMMDD
+            
+        Returns:
+            MongoDB查询条件字典
+        """
+        from datetime import datetime
+        try:
+            # 处理不同的日期格式
+            if '-' in date_str:
+                current_date = datetime.strptime(date_str, '%Y-%m-%d')
+            else:
+                current_date = datetime.strptime(date_str, '%Y%m%d')
+            
+            # 财务数据应该是回测日期之前的2年
+            end_year = current_date.year
+            start_year = max(2010, end_year - 2)  # 最早不超过2010年
+            
+            return {
+                "$gte": f"{start_year}0101",
+                "$lte": f"{end_year}1231"
+            }
+        except:
+            # 默认使用2022-2024年数据
+            return {
+                "$gte": "20220101",
+                "$lte": "20241231"
+            }
     
     async def _get_latest_trade_date(self) -> str:
         """获取最新交易日期"""

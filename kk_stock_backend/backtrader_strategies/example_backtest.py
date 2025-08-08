@@ -80,7 +80,7 @@ def print_backtest_summary(result: dict):
     print(f"   策略名称: {strategy_info['strategy_name']}")
     print(f"   策略版本: {strategy_info['strategy_version']}")
     print(f"   最大持仓: {strategy_info['max_positions']}只")
-    print(f"   单股仓位: {strategy_info['max_single_weight']:.0%}")
+    print(f"   单股仓位: {strategy_info['max_single_position']:.0%}")
     print(f"   最小共振得分: {strategy_info['min_resonance_score']}")
     print(f"   买入信号: {strategy_info['buy_signals_count']}次")
     print(f"   卖出信号: {strategy_info['sell_signals_count']}次")

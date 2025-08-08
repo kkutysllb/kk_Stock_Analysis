@@ -473,16 +473,13 @@ class PerformanceAnalyzer:
         Returns:
             用户友好的策略显示名称
         """
-                # 策略类型到友好名称的映射
+        # 策略类型到友好名称的映射
+        # 量化策略映射（只保留4大量化策略）
         strategy_mapping = {
-            'value_investment_adapter': '价值投资策略',
-            'growth_stock_adapter': '成长股策略',
-            'momentum_breakthrough_adapter': '动量突破策略',
-            'high_dividend_adapter': '高股息策略',
             'technical_breakthrough_adapter': '技术突破策略',
+            'momentum_breakthrough_adapter': '动量突破策略',
             'oversold_rebound_adapter': '超跌反弹策略',
-            'limit_up_leader_adapter': '连板龙头策略',
-            'fund_flow_tracking_adapter': '融资追踪策略'
+            'limit_up_leader_adapter': '连板龙头策略'
         }
         
         self.logger.info(f"🔍 友好名称转换: raw_name='{raw_name}', strategy_type='{strategy_type}'")
@@ -573,7 +570,7 @@ class PerformanceAnalyzer:
 |--------|------|
 | 策略版本 | {strategy_info.get('strategy_version', 'N/A')} |
 | 最大持仓数量 | {strategy_info.get('max_positions', 'N/A')} 只 |
-| 单股最大仓位 | {strategy_info.get('max_single_weight', 0):.0%} |
+| 单股最大仓位 | {strategy_info.get('max_single_position', 0):.0%} |
 | 策略评分条件 | {self._get_strategy_score_info(strategy_info)} |
 | 买入信号总数 | {strategy_info.get('buy_signals_count', 0)} 次 |
 | 卖出信号总数 | {strategy_info.get('sell_signals_count', 0)} 次 |
@@ -1386,45 +1383,21 @@ class PerformanceAnalyzer:
         strategy_type = strategy_info.get('strategy_type', '')
         strategy_name = strategy_info.get('strategy_name', '')
         
-        # 价值投资策略
-        if 'value_investment' in strategy_type or '价值投资' in strategy_name:
-            pe_max = strategy_info.get('pe_max', 'N/A')
-            roe_min = strategy_info.get('roe_min', 'N/A')
-            return f"价值投资得分(PE<{pe_max}, ROE≥{roe_min}%)"
+        # 量化策略评分信息
+        if 'technical_breakthrough' in strategy_type or '技术突破' in strategy_name:
+            threshold = strategy_info.get('breakthrough_threshold', 'N/A')
+            return f"技术突破得分(信号≥{threshold}分)"
         
-        # 成长股策略
-        elif 'growth_stock' in strategy_type or '成长股' in strategy_name:
-            growth_min = strategy_info.get('eps_growth_min', 'N/A')
-            return f"成长股得分(EPS增长≥{growth_min}%)"
-        
-        # 动量突破策略
         elif 'momentum_breakthrough' in strategy_type or '动量突破' in strategy_name:
             rsi_min = strategy_info.get('rsi_min', 'N/A')
             return f"动量突破得分(RSI≥{rsi_min})"
         
-        # 高股息策略
-        elif 'high_dividend' in strategy_type or '高股息' in strategy_name:
-            dividend_min = strategy_info.get('dividend_yield_min', 'N/A')
-            return f"高股息得分(股息率≥{dividend_min}%)"
-        
-        # 技术突破策略
-        elif 'technical_breakthrough' in strategy_type or '技术突破' in strategy_name:
-            threshold = strategy_info.get('breakthrough_threshold', 'N/A')
-            return f"技术突破得分(信号≥{threshold}分)"
-        
-        # 超跌反弹策略
         elif 'oversold_rebound' in strategy_type or '超跌反弹' in strategy_name:
             rsi_max = strategy_info.get('rsi_max', 'N/A')
             return f"超跌反弹得分(RSI≤{rsi_max})"
         
-        # 连板龙头策略
         elif 'limit_up_leader' in strategy_type or '连板龙头' in strategy_name:
             return f"连板龙头得分(连板数≥2)"
-        
-        # 融资追踪策略
-        elif 'fund_flow_tracking' in strategy_type or '融资追踪' in strategy_name:
-            margin_min = strategy_info.get('margin_buy_trend_min', 'N/A')
-            return f"融资追踪得分(融资买入≥{margin_min})"
         
         # 其他策略
         else:
@@ -1645,7 +1618,8 @@ class PerformanceAnalyzer:
                 db_handler = get_global_db_handler()
                 
                 # 使用传入的基准指数代码，查询基准指数数据
-                collection = db_handler.get_collection('stock_factor_pro')
+                # 指数价格数据在 index_daily 集合中
+                collection = db_handler.get_collection('index_daily')
                 
                 # 转换日期格式（YYYY-MM-DD -> YYYYMMDD）
                 start_date_fmt = start_date.replace('-', '')
@@ -1667,7 +1641,12 @@ class PerformanceAnalyzer:
                 
                 if not result:
                     self.logger.warning(f"未找到基准指数 {benchmark_code} 的数据")
-                    return self._generate_fallback_benchmark_data(dates)
+                    # 尝试使用沪深300作为备用基准
+                    if benchmark_code != '000300.SH':
+                        self.logger.info(f"尝试使用沪深300指数作为备用基准")
+                        return self._generate_benchmark_data(start_date, end_date, dates, '000300.SH')
+                    else:
+                        return self._generate_fallback_benchmark_data(dates)
                 
                 # 处理基准数据
                 benchmark_df = pd.DataFrame(result)
