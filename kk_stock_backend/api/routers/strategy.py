@@ -456,11 +456,11 @@ async def _get_template_by_id(template_id: str) -> Optional[Dict[str, Any]]:
 @cache_endpoint(data_type="value_investment", ttl=300)
 async def value_investment_screening(
     market_cap: str = "all",  # 市值范围：large/mid/small/all
-    stock_pool: str = "all",  # 股票池：all/main/gem/star
-    limit: int = 20,
+    stock_pool: str = "all",  # 股票池：all/main/gem/star/shenwan_value (改为全市场)
+    limit: int = 50,  # 增加默认数量
     current_user: dict = Depends(get_current_user)
 ) -> ScreeningResponse:
-    """价值投资策略专门接口 - 基于历史财报均值，使用策略适配器实现"""
+    """价值投资策略专门接口 - 全市场价值投资选股，基于专业评分机制，使用策略适配器实现"""
     try:
         # 导入价值投资策略适配器
         from backtrader_strategies.strategy_adapters.value_investment_adapter import ValueInvestmentAdapter

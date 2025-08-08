@@ -735,9 +735,14 @@ def _get_strategy_display_name(strategy_name: str) -> str:
     except:
         # 兜底方案
         strategy_names = {
-            'taishang_1': '太上老君1号',
-            'taishang_2': '太上老君2号', 
-            'taishang_3': '太上老君3号'
+        'value_investment': '价值投资策略',
+        'growth_stock': '成长股策略',
+        'momentum_breakthrough': '动量突破策略',
+        'high_dividend': '高股息策略',
+        'technical_breakthrough': '技术突破策略',
+        'oversold_rebound': '超跌反弹策略',
+        'limit_up_leader': '连板龙头策略',
+        'fund_flow_tracking': '融资追踪策略'
         }
         return strategy_names.get(strategy_name, strategy_name)
 

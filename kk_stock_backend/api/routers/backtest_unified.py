@@ -523,7 +523,7 @@ def create_strategy_config(config: BacktestConfig):
         # 应用策略特定的默认风险配置
         risk_config = config.risk_config
         if config.strategy_type == 'multi_trend':
-            # 太上老君1号策略的默认配置
+            # 多趋势共振策略的默认配置
             if risk_config.max_positions == 10:  # 如果是默认值
                 risk_config.max_positions = 8
             if risk_config.max_single_position == 0.1:  # 如果是默认值
@@ -569,7 +569,7 @@ def create_strategy_config(config: BacktestConfig):
         # 应用策略特定的默认风险配置
         risk_config = config.risk_config
         if config.strategy_type == 'multi_trend':
-            # 太上老君1号策略的默认配置
+            # 多趋势共振策略的默认配置
             if risk_config.max_positions == 10:  # 如果是默认值
                 risk_config.max_positions = 8
             if risk_config.max_single_position == 0.1:  # 如果是默认值
@@ -845,9 +845,14 @@ async def run_backtest_task(task_id: str, config: BacktestConfig, user_id: str):
                 if 'chart_data' in result and result['chart_data']:
                     # 根据策略名称映射到实际目录名
                     strategy_mapping = {
-                        'multi_trend': '太上老君1号策略',
-                        'boll': '太上老君2号策略', 
-                        'taishang_3_factor': '太上老君3号策略'
+                        'value_investment_adapter': '价值投资策略',
+                        'growth_stock_adapter': '成长股策略',
+                        'momentum_breakthrough_adapter': '动量突破策略',
+                        'high_dividend_adapter': '高股息策略',
+                        'technical_breakthrough_adapter': '技术突破策略',
+                        'oversold_rebound_adapter': '超跌反弹策略',
+                        'limit_up_leader_adapter': '连板龙头策略',
+                        'fund_flow_tracking_adapter': '融资追踪策略'
                     }
                     strategy_name = strategy_mapping.get(config.strategy_type, config.strategy_type)
                     
@@ -1464,9 +1469,14 @@ def get_friendly_strategy_name(raw_name: str, strategy_type: str) -> str:
     """
     # 策略类型到友好名称的映射
     strategy_mapping = {
-        'multi_trend': '太上老君1号策略',
-        'boll': '太上老君2号策略',
-        'taishang_3factor': '太上老君3号策略'
+        'value_investment_adapter': '价值投资策略',
+        'growth_stock_adapter': '成长股策略',
+        'momentum_breakthrough_adapter': '动量突破策略',
+        'high_dividend_adapter': '高股息策略',
+        'technical_breakthrough_adapter': '技术突破策略',
+        'oversold_rebound_adapter': '超跌反弹策略',
+        'limit_up_leader_adapter': '连板龙头策略',
+        'fund_flow_tracking_adapter': '融资追踪策略'
     }
     
     # 优先使用strategy_type进行映射
@@ -1480,7 +1490,7 @@ def get_friendly_strategy_name(raw_name: str, strategy_type: str) -> str:
             return friendly_name
     
     # 如果原名称已经是友好名称，直接返回
-    if '太上老君' in raw_name:
+    if '策略' in raw_name:
         return raw_name
         
     # 默认返回通用名称，不暴露技术细节

@@ -141,18 +141,44 @@ class FactorSelector:
         try:
             self.logger.info("📊 开始统计因子选择")
             
-            # 默认选择标准
+            # 验证输入数据
+            if not factor_analysis_results:
+                self.logger.warning("⚠️ 因子分析结果为空，无法进行因子选择")
+                return FactorSelectionResult(
+                    method='statistical',
+                    selected_factors=[],
+                    factor_scores={},
+                    selection_metrics={'total_factors': 0, 'passed_criteria': 0, 'final_selected': 0, 
+                                     'selection_ratio': 0.0, 'avg_ic_ir': 0.0, 'avg_ic_mean': 0.0, 'significant_ratio': 0.0},
+                    cross_val_score=0.0,
+                    feature_importance=None,
+                    selection_date=datetime.now()
+                )
+            
+            # 默认选择标准 - 调整为更合理的水平
             if selection_criteria is None:
                 selection_criteria = {
-                    'min_ic_ir': 0.5,      # 最小IC_IR
-                    'min_ic_mean': 0.02,   # 最小IC均值
-                    'max_p_value': 0.05,   # 最大p值
-                    'min_significance': True, # 必须显著
+                    'min_ic_ir': 0.15,     # 最小IC_IR (降低到合理水平)
+                    'min_ic_mean': 0.005,  # 最小IC均值 (降低到实用水平)
+                    'max_p_value': 0.1,    # 最大p值 (稍微放宽)
+                    'min_significance': False, # 不强制要求显著性
                     'top_k': 50            # 选择前K个
                 }
             
             selected_factors = []
             factor_scores = {}
+            
+            # 统计筛选前的数据分布
+            total_factors = len(factor_analysis_results)
+            ic_ir_values = [abs(result.ic_ir) for result in factor_analysis_results.values()]
+            ic_mean_values = [abs(result.ic_mean) for result in factor_analysis_results.values()]
+            p_values = [result.p_value for result in factor_analysis_results.values()]
+            
+            self.logger.info(f"📊 筛选前统计: 总计{total_factors}个因子")
+            if ic_ir_values:
+                self.logger.info(f"   IC_IR: 均值={np.mean(ic_ir_values):.3f}, 最大={max(ic_ir_values):.3f}")
+                self.logger.info(f"   IC均值: 均值={np.mean(ic_mean_values):.4f}, 最大={max(ic_mean_values):.4f}")
+                self.logger.info(f"   p值 ≤ 0.1的因子: {sum(1 for p in p_values if p <= 0.1)}个")
             
             # 筛选条件
             for factor_name, result in factor_analysis_results.items():
@@ -186,15 +212,18 @@ class FactorSelector:
             final_factors = [name for name, score in sorted_factors[:top_k]]
             final_scores = {name: score for name, score in sorted_factors[:top_k]}
             
-            # 计算选择指标
+            # 计算选择指标 - 避免除零错误
+            total_factors = len(factor_analysis_results)
+            final_count = len(final_factors)
+            
             selection_metrics = {
-                'total_factors': len(factor_analysis_results),
+                'total_factors': total_factors,
                 'passed_criteria': len(selected_factors),
-                'final_selected': len(final_factors),
-                'selection_ratio': len(final_factors) / len(factor_analysis_results),
-                'avg_ic_ir': np.mean([factor_analysis_results[f].ic_ir for f in final_factors]),
-                'avg_ic_mean': np.mean([factor_analysis_results[f].ic_mean for f in final_factors]),
-                'significant_ratio': sum([factor_analysis_results[f].significance for f in final_factors]) / len(final_factors)
+                'final_selected': final_count,
+                'selection_ratio': final_count / total_factors if total_factors > 0 else 0.0,
+                'avg_ic_ir': np.mean([factor_analysis_results[f].ic_ir for f in final_factors]) if final_count > 0 else 0.0,
+                'avg_ic_mean': np.mean([factor_analysis_results[f].ic_mean for f in final_factors]) if final_count > 0 else 0.0,
+                'significant_ratio': sum([factor_analysis_results[f].significance for f in final_factors]) / final_count if final_count > 0 else 0.0
             }
             
             result = FactorSelectionResult(
@@ -434,7 +463,16 @@ class FactorSelector:
                 factor_scores[feature] = float(np.abs(lasso.coef_[idx]))
             
             # 交叉验证得分
-            cv_score = float(-lasso.score(X[selected_features], y))
+            if selected_features:
+                # 确保选择的特征在X中存在
+                valid_features = [f for f in selected_features if f in X.columns]
+                if valid_features:
+                    cv_score = float(-lasso.score(X[valid_features], y))
+                else:
+                    cv_score = 0.0
+                selected_features = valid_features
+            else:
+                cv_score = 0.0
             
             selection_metrics = {
                 'alpha': float(lasso.alpha_),
@@ -693,7 +731,8 @@ class FactorSelector:
             self.logger.info("🎯 开始集成因子选择")
             
             if methods is None:
-                methods = ['xgboost', 'lightgbm', 'random_forest', 'lasso', 'selectkbest']
+                # 只使用最有效和最快的方法
+                methods = ['xgboost', 'lightgbm']
             
             # 运行各种方法
             method_results = {}
@@ -734,23 +773,26 @@ class FactorSelector:
             qualified_factors.sort(key=lambda x: (x[1], x[2]), reverse=True)
             selected_factors = [f[0] for f in qualified_factors[:n_features]]
             
-            # 最终得分
+            # 最终得分 - 避免除零错误
             final_scores = {}
+            max_avg_score = max(factor_avg_scores.values()) if factor_avg_scores else 1.0
+            
             for factor, vote_ratio, avg_score in qualified_factors[:n_features]:
-                final_scores[factor] = vote_ratio * 0.7 + (avg_score / max(factor_avg_scores.values())) * 0.3
+                normalized_score = (avg_score / max_avg_score) if max_avg_score > 0 else 0.0
+                final_scores[factor] = vote_ratio * 0.7 + normalized_score * 0.3
             
             # 交叉验证最终结果
             estimator = RandomForestRegressor(n_estimators=100, random_state=42)
             cv_scores = cross_val_score(estimator, X[selected_factors], y, cv=5, scoring='neg_mean_squared_error')
             cv_score = float(-np.mean(cv_scores))
             
-            # 选择指标
+            # 选择指标 - 避免除零错误
             selection_metrics = {
                 'n_methods': n_methods,
                 'vote_threshold': vote_threshold,
                 'qualified_factors': len(qualified_factors),
                 'final_selected': len(selected_factors),
-                'avg_vote_ratio': np.mean([f[1] for f in qualified_factors[:n_features]]),
+                'avg_vote_ratio': np.mean([f[1] for f in qualified_factors[:n_features]]) if qualified_factors[:n_features] else 0.0,
                 'cv_score': cv_score
             }
             

@@ -40,16 +40,32 @@ class FactorMiningSystem:
     """
     智能因子挖掘系统
     
-    完整的因子挖掘到策略执行的端到端系统
+    支持不同指数成分股的因子挖掘系统
+    - 中证A500、申万行业、其他指数
+    - 按指数类型分别存储和分析
     """
     
-    def __init__(self, config_path: str = None):
+    def __init__(self, config_path: str = None, index_type: str = "csi_a500", 
+                 device: str = "auto", disable_gpu: bool = False, batch_size: int = None):
         """
         初始化因子挖掘系统
         
         Args:
             config_path: 配置文件路径
+            index_type: 指数类型 (csi_a500, sw_industry, csi300, etc.)
+            device: 计算设备类型
+            disable_gpu: 是否禁用GPU
+            batch_size: 批处理大小覆盖
         """
+        # 指数类型配置
+        self.index_type = index_type
+        self.index_config = self._get_index_config(index_type)
+        
+        # 硬件配置
+        self.device_preference = device
+        self.disable_gpu = disable_gpu
+        self.batch_size_override = batch_size
+        
         self.logger = self._setup_logger()
         
         # 加载配置
@@ -63,7 +79,12 @@ class FactorMiningSystem:
         try:
             with open(config_path, 'r', encoding='utf-8') as f:
                 self.config = yaml.safe_load(f)
+                
+            # 根据指数类型调整配置
+            self._adjust_config_for_index()
+            
             self.logger.info(f"✅ 配置文件加载成功: {config_path}")
+            self.logger.info(f"📊 指数类型: {self.index_config['name']} ({self.index_type})")
         except Exception as e:
             self.logger.error(f"❌ 配置文件加载失败: {e}")
             raise
@@ -79,7 +100,7 @@ class FactorMiningSystem:
         # 运行结果
         self.results = {}
         
-        self.logger.info("🚀 因子挖掘系统初始化完成")
+        self.logger.info(f"🚀 因子挖掘系统初始化完成 - {self.index_config['name']}")
     
     def _setup_logger(self) -> logging.Logger:
         """设置日志"""
@@ -111,6 +132,152 @@ class FactorMiningSystem:
                 logger.warning(f"⚠️ 无法创建日志文件: {e}")
         
         return logger
+    
+    def _get_index_config(self, index_type: str) -> Dict[str, Any]:
+        """获取指数配置信息"""
+        index_configs = {
+            "csi_a500": {
+                "name": "中证A500指数",
+                "code": "000510.CSI", 
+                "collection": "index_weight",
+                "filter": {"index_code": "000510.CSI"},
+                "stock_count": 500,
+                "description": "中证A500指数成分股"
+            },
+            "csi300": {
+                "name": "沪深300指数",
+                "code": "000300.SH",
+                "collection": "index_weight", 
+                "filter": {"index_code": "000300.SH"},
+                "stock_count": 300,
+                "description": "沪深300指数成分股"
+            },
+            "csi500": {
+                "name": "中证500指数",
+                "code": "000905.SH",
+                "collection": "index_weight",
+                "filter": {"index_code": "000905.SH"}, 
+                "stock_count": 500,
+                "description": "中证500指数成分股"
+            },
+            "csi1000": {
+                "name": "中证1000指数",
+                "code": "000852.SH", 
+                "collection": "index_weight",
+                "filter": {"index_code": "000852.SH"},
+                "stock_count": 1000,
+                "description": "中证1000指数成分股"
+            },
+            "sw_food": {
+                "name": "申万食品饮料行业",
+                "code": "SW_FOOD",
+                "collection": "index_member_all",
+                "filter": {"l1_name": "食品饮料"},
+                "stock_count": 100,
+                "description": "申万食品饮料行业成分股"
+            },
+            "sw_tech": {
+                "name": "申万电子行业", 
+                "code": "SW_TECH",
+                "collection": "index_member_all",
+                "filter": {"l1_name": "电子"},
+                "stock_count": 200,
+                "description": "申万电子行业成分股"
+            },
+            "sw_pharma": {
+                "name": "申万医药生物行业",
+                "code": "SW_PHARMA", 
+                "collection": "index_member_all",
+                "filter": {"l1_name": "医药生物"},
+                "stock_count": 150,
+                "description": "申万医药生物行业成分股"
+            },
+            "sw_auto": {
+                "name": "申万汽车行业",
+                "code": "SW_AUTO",
+                "collection": "index_member_all", 
+                "filter": {"l1_name": "汽车"},
+                "stock_count": 80,
+                "description": "申万汽车行业成分股"
+            },
+            "sw_metal": {
+                "name": "申万有色金属行业",
+                "code": "SW_METAL",
+                "collection": "index_member_all",
+                "filter": {"l1_name": "有色金属"},
+                "stock_count": 120,
+                "description": "申万有色金属行业成分股"
+            },
+            "custom": {
+                "name": "自定义股票池",
+                "code": "CUSTOM",
+                "collection": "custom_universe",
+                "filter": {},
+                "stock_count": 0,
+                "description": "自定义股票池"
+            }
+        }
+        
+        return index_configs.get(index_type, index_configs["csi_a500"])
+    
+    def _adjust_config_for_index(self):
+        """根据指数类型调整配置"""
+        # 调整数据配置
+        self.config['data_config']['stock_universe'] = self.index_type
+        self.config['data_config']['index_code'] = self.index_config['code']
+        
+        # 调整硬件加速配置
+        self._adjust_hardware_config()
+        
+        # 调整存储配置 - 按指数类型分别存储
+        original_collections = self.config['storage_config']['collections'].copy()
+        
+        # 为每个集合添加指数前缀
+        for key, collection_name in original_collections.items():
+            self.config['storage_config']['collections'][key] = f"{self.index_type}_{collection_name}"
+        
+        # 调整输出路径
+        if 'output_config' not in self.config:
+            self.config['output_config'] = {}
+        
+        self.config['output_config']['base_path'] = f"results/factor_mining/{self.index_type}"
+        self.config['output_config']['report_prefix'] = f"{self.index_config['name']}_"
+    
+    def _adjust_hardware_config(self):
+        """调整硬件加速配置"""
+        if 'acceleration_config' not in self.config:
+            return
+            
+        # 处理设备偏好
+        if self.device_preference != "auto":
+            # 强制指定设备
+            if self.device_preference == "cuda":
+                self.config['acceleration_config']['device_config']['device_priority'] = ["cuda"]
+            elif self.device_preference == "mps":
+                self.config['acceleration_config']['device_config']['device_priority'] = ["mps"]
+            elif self.device_preference == "cpu":
+                self.config['acceleration_config']['device_config']['device_priority'] = ["cpu"]
+        
+        # 禁用GPU
+        if self.disable_gpu:
+            self.config['acceleration_config']['device_config']['device_priority'] = ["cpu"]
+            self.config['acceleration_config']['device_config']['cuda']['enabled'] = False
+            self.config['acceleration_config']['device_config']['mps']['enabled'] = False
+        
+        # 覆盖批处理大小
+        if self.batch_size_override:
+            if 'factor_config' not in self.config:
+                self.config['factor_config'] = {}
+            if 'factor_analysis' not in self.config['factor_config']:
+                self.config['factor_config']['factor_analysis'] = {}
+            
+            self.config['factor_config']['factor_analysis']['batch_size'] = self.batch_size_override
+            
+            # 同时调整性能优化配置
+            if 'performance_optimization' in self.config['acceleration_config']:
+                batch_config = self.config['acceleration_config']['performance_optimization'].get('batch_processing', {})
+                batch_config['min_batch_size'] = min(self.batch_size_override, batch_config.get('min_batch_size', 10))
+                batch_config['max_batch_size'] = max(self.batch_size_override, batch_config.get('max_batch_size', 1000))
     
     def initialize_components(self):
         """初始化系统组件"""
@@ -167,7 +334,11 @@ class FactorMiningSystem:
                 'start_date': start_date,
                 'end_date': end_date,
                 'analysis_type': 'comprehensive',
-                'system_version': '1.0'
+                'system_version': '1.0',
+                'index_type': self.index_type,
+                'index_name': self.index_config['name'],
+                'index_code': self.index_config['code'],
+                'stock_count': self.index_config['stock_count']
             }
             
             doc_id = self.result_storage.save_factor_analysis_results(
@@ -222,7 +393,10 @@ class FactorMiningSystem:
                 'end_date': end_date,
                 'return_period': return_period,
                 'selection_type': 'comprehensive',
-                'system_version': '1.0'
+                'system_version': '1.0',
+                'index_type': self.index_type,
+                'index_name': self.index_config['name'],
+                'index_code': self.index_config['code']
             }
             
             doc_id = self.result_storage.save_factor_selection_results(
@@ -659,10 +833,22 @@ def main():
     parser.add_argument('--end-date', type=str, help='结束日期 (YYYY-MM-DD)')
     parser.add_argument('--return-period', type=int, default=20, help='收益率周期（天）')
     
+    # 指数类型参数
+    parser.add_argument('--index-type', type=str, default='csi_a500',
+                       choices=['csi_a500', 'csi300', 'csi500', 'csi1000', 'sw_food', 'sw_tech', 'sw_pharma', 'sw_auto', 'sw_metal', 'custom'],
+                       help='指数类型: csi_a500(中证A500), csi300(沪深300), csi500(中证500), csi1000(中证1000), sw_food(申万食品), sw_tech(申万电子), sw_pharma(申万医药), sw_auto(申万汽车), sw_metal(申万有色金属), custom(自定义)')
+    parser.add_argument('--list-indices', action='store_true', help='显示支持的指数类型')
+    
     # 运行模式
     parser.add_argument('--mode', type=str, choices=['complete', 'analysis', 'selection', 'training', 'strategy'], 
                        default='complete', help='运行模式')
     parser.add_argument('--no-strategy', action='store_true', help='不执行策略')
+    
+    # 硬件加速参数
+    parser.add_argument('--device', type=str, choices=['auto', 'cuda', 'mps', 'cpu'], 
+                       default='auto', help='指定计算设备: auto(自动检测), cuda(NVIDIA GPU), mps(Apple Silicon), cpu(CPU)')
+    parser.add_argument('--disable-gpu', action='store_true', help='禁用GPU加速，强制使用CPU')
+    parser.add_argument('--batch-size', type=int, help='覆盖配置文件中的批处理大小')
     
     # 其他参数
     parser.add_argument('--model-name', type=str, help='指定模型名称')
@@ -672,8 +858,33 @@ def main():
     args = parser.parse_args()
     
     try:
-        # 创建系统实例
-        system = FactorMiningSystem(args.config)
+        # 显示支持的指数类型
+        if args.list_indices:
+            print("📊 支持的指数类型:")
+            indices = {
+                'csi_a500': '中证A500指数 (500只成分股)',
+                'csi300': '沪深300指数 (300只成分股)', 
+                'csi500': '中证500指数 (500只成分股)',
+                'csi1000': '中证1000指数 (1000只成分股)',
+                'sw_food': '申万食品饮料行业',
+                'sw_tech': '申万电子行业',
+                'sw_pharma': '申万医药生物行业', 
+                'sw_auto': '申万汽车行业',
+                'sw_metal': '申万有色金属行业',
+                'custom': '自定义股票池'
+            }
+            for code, desc in indices.items():
+                print(f"  {code:10s} - {desc}")
+            return
+        
+        # 创建系统实例 
+        system = FactorMiningSystem(
+            config_path=args.config, 
+            index_type=args.index_type,
+            device=args.device,
+            disable_gpu=args.disable_gpu,
+            batch_size=args.batch_size
+        )
         
         # 显示系统状态
         if args.status:

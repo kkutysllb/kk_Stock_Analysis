@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Backtrader量化策略模块
-基于太上老君三大策略的完整回测系统
+专业的A股量化交易回测系统
 """
 
 import sys

@@ -34,7 +34,7 @@ class StrategyConfigManager:
         configs = {
             'taishang_1': StrategyConfig(
                 name='taishang_1',
-                display_name='太上老君1号',
+                display_name='多趋势共振策略',
                 version='1.0.0',
                 description='多趋势共振策略 - 基于MACD、KDJ、成交量等多重指标共振识别投资机会',
                 max_positions=8,
@@ -51,7 +51,7 @@ class StrategyConfigManager:
             
             'taishang_2': StrategyConfig(
                 name='taishang_2',
-                display_name='太上老君2号',
+                display_name='布林带策略',
                 version='1.0.0',
                 description='好奇布偶猫BOLL策略 - 基于布林带指标的小市值股票择时策略',
                 max_positions=10,
@@ -67,7 +67,7 @@ class StrategyConfigManager:
             
             'taishang_3': StrategyConfig(
                 name='taishang_3',
-                display_name='太上老君3号',
+                display_name='小市值动量策略',
                 version='3.4.0',
                 description='小市值动量策略 - 基于RSI择时+多因子评分+WR指标+事件驱动调仓',
                 max_positions=10,

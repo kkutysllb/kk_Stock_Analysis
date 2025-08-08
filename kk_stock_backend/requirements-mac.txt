@@ -1,0 +1,26 @@
+# Mac环境依赖文件
+# 适用于Apple Silicon (M1/M2/M3等) + MPS加速
+
+# 基础依赖 (从requirements.txt继承)
+-r requirements.txt
+
+# PyTorch MPS版本 (推荐通过conda安装)
+# conda install pytorch torchvision torchaudio -c pytorch
+
+# Mac系统监控
+psutil>=5.8.0          # 系统资源监控
+
+# 优化库 (Mac兼容版本)
+# 注意: CuPy/CuDF等CUDA库在Mac上不可用
+
+# Mac特定的机器学习加速
+# (Apple的Accelerate框架通过NumPy/SciPy自动使用)
+
+# 可选：Metal Performance Shaders支持
+# 通过PyTorch的MPS后端自动支持
+
+# 注意事项：
+# 1. Mac用户应该使用MPS后端而非CUDA
+# 2. 某些CUDA专用库在Mac上无法使用
+# 3. 推荐使用Apple优化的Python发行版
+# 4. M系列芯片具有统一内存架构，内存管理策略不同

@@ -1,3 +1,74 @@
+# 硬件加速配置
+acceleration_config:
+  # 设备配置
+  device_config:
+    # 自动检测设备优先级: auto, cuda, mps, cpu
+    device_priority: ["cuda", "mps", "cpu"]
+    
+    # CUDA配置 (NVIDIA GPU)
+    cuda:
+      enabled: true                           # 是否启用CUDA
+      device_ids: [0, 1]                      # 使用的GPU设备ID (双4090)
+      mixed_precision: true                   # 混合精度训练 (FP16)
+      memory_fraction: 0.8                    # 每张卡最大内存使用比例
+      allow_growth: true                      # 动态内存分配
+      
+    # MPS配置 (Apple Silicon Mac)  
+    mps:
+      enabled: true                           # 是否启用MPS
+      memory_fraction: 0.7                    # 最大内存使用比例
+      
+    # CPU配置
+    cpu:
+      n_jobs: -1                              # 并行线程数 (-1为自动)
+      backend: "threading"                    # 后端类型: threading, multiprocessing
+      
+  # 计算加速配置
+  compute_acceleration:
+    # 数据加载加速
+    data_loading:
+      use_gpu_memory: true                    # 使用GPU内存加载数据
+      prefetch_factor: 2                      # 数据预取倍数
+      pin_memory: true                        # 锁页内存
+      
+    # 矩阵运算加速
+    matrix_operations:
+      use_gpu: true                           # 矩阵运算使用GPU
+      batch_operations: true                  # 批量运算
+      vectorized_ops: true                    # 向量化操作
+      
+    # 因子计算加速
+    factor_computation:
+      parallel_factors: true                  # 并行计算因子
+      chunk_processing: true                  # 分块处理
+      cache_intermediate: true                # 缓存中间结果
+      
+    # 机器学习加速
+    ml_acceleration:
+      gpu_training: true                      # GPU训练模型
+      distributed_training: false            # 分布式训练 (多GPU)
+      gradient_accumulation: 4                # 梯度累积步数
+      
+  # 性能优化
+  performance_optimization:
+    # 内存优化
+    memory:
+      max_memory_gb: 32                       # 最大内存使用(GB)
+      garbage_collection: true                # 自动垃圾回收
+      memory_monitoring: true                 # 内存监控
+      
+    # 批处理优化
+    batch_processing:
+      adaptive_batch_size: true               # 自适应批大小
+      min_batch_size: 100                     # 最小批大小
+      max_batch_size: 1000                    # 最大批大小
+      
+    # 并行优化
+    parallelization:
+      factor_parallel: true                   # 因子并行计算
+      stock_parallel: true                    # 股票并行处理
+      max_workers: 8                          # 最大工作线程
+
 data_config:
   forward_returns:
   - 1
@@ -38,14 +109,61 @@ evaluation_config:
     transaction_cost: 0.003
 factor_config:
   factor_analysis:
-    batch_size: 50
-    ic_threshold: 0.02
-    min_periods: 20
+    batch_size: 50                              # 批处理股票数量
+    ic_threshold: 0.02                          # IC有效性阈值
+    min_periods: 20                             # 最小样本期数
+    memory_optimization:
+      chunk_size: 1000                          # 数据分块大小
+      use_compression: true                     # 使用数据压缩
+      factor_selection_first: true              # 先做因子筛选减少内存占用
+  data_source:
+    primary_collection: "stock_factor_pro"      # 主要数据集合
+    auto_discover_factors: true                 # 自动发现数据库中的因子字段
+    exclude_fields:                             # 排除的非因子字段
+      - "_id"
+      - "trade_date" 
+      - "ts_code"
+    additional_collections:                     # 额外因子集合（暂不使用）
+      - "mario_factors_high_priority"           # 高优先级mario因子
+      - "mario_factors_medium_priority"         # 中优先级mario因子
   factor_categories:
-    technical_factors:
+    # 基础价量因子
+    basic_factors:
+    - open
+    - high  
+    - low
+    - close
+    - close_hfq
+    - close_qfq
+    - vol
+    - amount
+    - change
+    - pct_chg
+    - pre_close
+    
+    # 估值因子
+    valuation_factors:
+    - pe
+    - pe_ttm
+    - pb
+    - ps
+    - ps_ttm
+    - total_mv
+    - circ_mv
+    - dv_ratio
+    - dv_ttm
+    
+    # 换手率和流动性因子
+    liquidity_factors:
     - turnover_rate
     - turnover_rate_f
     - volume_ratio
+    - float_share
+    - free_share
+    - total_share
+    
+    # 技术指标因子
+    technical_factors:
     - bias1_bfq
     - bias1_hfq
     - bias1_qfq
@@ -304,6 +422,146 @@ factor_config:
     - xsii_td4_bfq
     - xsii_td4_hfq
     - xsii_td4_qfq
+    - adj_factor
+    
+
+    
+    # 自定义衍生因子（需要计算生成）
+    custom_derived_factors:
+      # 动量因子
+      momentum_factors:
+        enhanced_momentum:
+          description: "增强动量因子"
+          formula: "close / ma_5 - close / ma_20"
+          params:
+            short_window: 5
+            long_window: 20
+        price_momentum_1d:
+          description: "1日价格动量"
+          formula: "close / close.shift(1) - 1"
+        price_momentum_5d:
+          description: "5日价格动量" 
+          formula: "close / close.shift(5) - 1"
+        price_momentum_20d:
+          description: "20日价格动量"
+          formula: "close / close.shift(20) - 1"
+        volume_momentum:
+          description: "成交量动量"
+          formula: "vol / vol.rolling(20).mean()"
+        relative_strength:
+          description: "相对强度动量"
+          formula: "(close / close.rolling(252).mean()) - 1"
+          params:
+            window: 252
+        price_acceleration:
+          description: "价格加速度（二阶动量）"
+          formula: "close.pct_change().diff()"
+          
+      # 波动率因子
+      volatility_factors:
+        volatility_momentum:
+          description: "波动率动量因子"
+          formula: "close.pct_change().rolling(window).std()"
+          params:
+            window: 20
+        price_volatility_5d:
+          description: "5日价格波动率"
+          formula: "close.pct_change().rolling(5).std()"
+        price_volatility_20d:
+          description: "20日价格波动率"
+          formula: "close.pct_change().rolling(20).std()"
+        high_low_volatility:
+          description: "高低价波动率"
+          formula: "(high - low) / close"
+        volume_volatility:
+          description: "成交量波动率"
+          formula: "vol.pct_change().rolling(20).std()"
+        price_volatility_60d:
+          description: "60日价格波动率"
+          formula: "close.pct_change().rolling(60).std()"
+        volatility_ratio:
+          description: "波动率比率"
+          formula: "price_volatility_5d / price_volatility_20d"
+        garch_volatility:
+          description: "GARCH波动率"
+          formula: "garch_model_volatility"
+        volatility_skew:
+          description: "波动率偏度"
+          formula: "close.pct_change().rolling(20).skew()"
+        volatility_kurtosis:
+          description: "波动率峰度"
+          formula: "close.pct_change().rolling(20).kurtosis()"
+        
+      # 量价背离因子
+      price_volume_divergence:
+        pv_divergence_10d:
+          description: "10日量价背离因子"
+          formula: "price_change_rank - volume_change_rank"
+          params:
+            window: 10
+            calculation: |
+              price_change = close.pct_change(10)
+              volume_change = vol.pct_change(10)
+              price_rank = price_change.rolling(252).rank()
+              volume_rank = volume_change.rolling(252).rank()
+              return price_rank - volume_rank
+        pv_correlation_10d:
+          description: "量价相关性(10日)"
+          formula: "rolling_corr(close.pct_change(), vol.pct_change(), window)"
+          params:
+            window: 10
+        pv_correlation_20d:
+          description: "量价相关性(20日)"
+          formula: "rolling_corr(close.pct_change(), vol.pct_change(), window)"
+          params:
+            window: 20
+        volume_price_trend:
+          description: "量价趋势指标"
+          formula: "(close - close.shift(1)) * vol"
+        obv_divergence:
+          description: "OBV背离指标"
+          formula: "price_trend vs obv_trend"
+          params:
+            calculation: |
+              obv = (vol * np.sign(close.pct_change())).cumsum()
+              price_trend = close.rolling(20).apply(lambda x: stats.linregress(range(len(x)), x)[0])
+              obv_trend = obv.rolling(20).apply(lambda x: stats.linregress(range(len(x)), x)[0])
+              return np.sign(price_trend) != np.sign(obv_trend)
+        price_volume_sync:
+          description: "价量同步性"
+          formula: "correlation between price and volume changes"
+        relative_volume:
+          description: "相对成交量"
+          formula: "vol / vol.rolling(20).mean()"
+        volume_price_strength:
+          description: "量价强度"
+          formula: "vol * abs(close.pct_change())"
+              
+      # 复合技术因子
+      composite_factors:
+        rsi_divergence:
+          description: "RSI背离"
+          formula: "price_trend vs rsi_trend"
+        macd_momentum:
+          description: "MACD动量"
+          formula: "macd_dif / macd_dif.shift(1) - 1"
+        bollinger_position:
+          description: "布林带位置"
+          formula: "(close - boll_lower) / (boll_upper - boll_lower)"
+        kdj_divergence:
+          description: "KDJ背离指标"
+          formula: "kdj_k vs kdj_d divergence"
+        ema_momentum:
+          description: "EMA动量"
+          formula: "close / ema_20 - 1"
+        
+  # 因子计算配置
+  factor_calculation:
+    enable_custom_factors: true
+    calculation_engine: "pandas"  # pandas, polars, dask
+    batch_calculation: true
+    memory_efficient: true
+    
   preprocessing:
     missing_value: forward_fill
     outlier_treatment: winsorize
@@ -353,7 +611,7 @@ storage_config:
     models: models
     results: mining_results
   database:
-    db_name: factor_mining
+    db_name: quant_analysis  # 使用主数据库
     host: localhost
     port: 27017
   model_storage:

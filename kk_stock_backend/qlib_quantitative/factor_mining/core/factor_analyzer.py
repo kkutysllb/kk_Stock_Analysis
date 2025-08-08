@@ -29,6 +29,20 @@ from sklearn.manifold import TSNE
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 from api.global_db import db_handler
 
+# 导入加速模块
+try:
+    from ..acceleration import create_device_manager, GPUAccelerator
+    ACCELERATION_AVAILABLE = True
+except ImportError:
+    ACCELERATION_AVAILABLE = False
+
+# 导入自定义因子计算器
+try:
+    from .custom_factor_calculator import CustomFactorCalculator
+    CUSTOM_FACTOR_AVAILABLE = True
+except ImportError:
+    CUSTOM_FACTOR_AVAILABLE = False
+
 warnings.filterwarnings('ignore')
 
 @dataclass
@@ -107,10 +121,40 @@ class FactorAnalyzer:
         self.return_data = {}
         self.analysis_results = {}
         
-        # 因子列表 - 从数据库字段分析文件中获取
+        # 初始化硬件加速
+        self.device_manager = None
+        self.gpu_accelerator = None
+        if ACCELERATION_AVAILABLE:
+            try:
+                self.device_manager = create_device_manager(self.config)
+                if self.device_manager and self.device_manager.device_type:
+                    # 只有设备管理器成功初始化才创建GPU加速器
+                    self.gpu_accelerator = GPUAccelerator(self.device_manager, self.config.get('acceleration_config', {}))
+                    self.logger.info(f"⚡ 硬件加速已启用: {self.device_manager.device_type.upper()}")
+                else:
+                    self.logger.info("💻 硬件加速未检测到可用设备，使用CPU模式")
+            except Exception as e:
+                self.logger.warning(f"⚠️ 硬件加速初始化失败，使用CPU模式: {e}")
+                self.device_manager = None
+                self.gpu_accelerator = None
+        else:
+            self.logger.info("💻 加速模块未安装，使用CPU计算模式")
+        
+        # 初始化自定义因子计算器
+        self.custom_factor_calculator = None
+        if CUSTOM_FACTOR_AVAILABLE:
+            try:
+                self.custom_factor_calculator = CustomFactorCalculator()
+                self.logger.info("🔧 自定义因子计算器已初始化")
+            except Exception as e:
+                self.logger.warning(f"⚠️ 自定义因子计算器初始化失败: {e}")
+        else:
+            self.logger.info("⚠️ 自定义因子计算器模块未找到")
+        
+        # 因子列表 - 从配置文件中获取
         self.factor_fields = self._load_factor_fields()
         
-        self.logger.info(f"🚀 因子分析器初始化完成，共{len(self.factor_fields)}个技术因子")
+        self.logger.info(f"🚀 因子分析器初始化完成，共{len(self.factor_fields)}个因子")
     
     def _setup_logger(self) -> logging.Logger:
         """设置日志"""
@@ -142,9 +186,115 @@ class FactorAnalyzer:
     
     def _load_factor_fields(self) -> List[str]:
         """
-        加载261个技术因子字段列表
-        从stock_factor_pro_fields_analysis.json中获取
+        加载所有因子字段列表（326个）
+        优先从factor_mining_config.yaml中获取完整因子列表
         """
+        try:
+            # 优先从配置文件中加载所有因子
+            factor_fields = []
+            factor_config = self.config['factor_config']['factor_categories']
+            
+            # 加载所有类别的因子
+            for category, factors in factor_config.items():
+                if category == 'custom_derived_factors':
+                    # 处理自定义衍生因子
+                    for subcategory, subfactors in factors.items():
+                        if isinstance(subfactors, dict):
+                            factor_fields.extend(list(subfactors.keys()))
+                elif isinstance(factors, list):
+                    factor_fields.extend(factors)
+            
+            # 去重并排序，排除索引字段
+            factor_fields = sorted(list(set(factor_fields)))
+            
+            # 排除非因子字段
+            exclude_fields = {'trade_date', 'ts_code', '_id'}
+            factor_fields = [f for f in factor_fields if f not in exclude_fields]
+            
+            self.logger.info(f"📊 加载因子字段: {len(factor_fields)}个 (已排除索引字段)")
+            basic_count = len([f for f in factor_config.get('basic_factors', []) if f in factor_fields])
+            valuation_count = len([f for f in factor_config.get('valuation_factors', []) if f in factor_fields])
+            liquidity_count = len([f for f in factor_config.get('liquidity_factors', []) if f in factor_fields])
+            technical_count = len([f for f in factor_config.get('technical_factors', []) if f in factor_fields])
+            self.logger.info(f"   ├─ 基础因子: {basic_count}个")
+            self.logger.info(f"   ├─ 估值因子: {valuation_count}个") 
+            self.logger.info(f"   ├─ 流动性因子: {liquidity_count}个")
+            self.logger.info(f"   ├─ 技术指标因子: {technical_count}个")
+            
+            # 统计自定义因子
+            custom_count = 0
+            if 'custom_derived_factors' in factor_config:
+                for subcategory, subfactors in factor_config['custom_derived_factors'].items():
+                    if isinstance(subfactors, dict):
+                        custom_count += len(subfactors)
+            self.logger.info(f"   └─ 自定义衍生因子: {custom_count}个")
+            
+            # 验证数据库中实际存在的因子
+            validated_factors = self._validate_database_factors(factor_fields)
+            
+            return validated_factors
+            
+        except Exception as e:
+            self.logger.error(f"❌ 配置文件因子加载失败: {e}")
+            # 回退到JSON文件加载
+            return self._load_from_json_backup()
+    
+    def _validate_database_factors(self, factor_fields: List[str]) -> List[str]:
+        """验证数据库中实际存在的因子字段，只使用stock_factor_pro集合"""
+        try:
+            # 只从stock_factor_pro集合获取字段
+            collection = self.db_handler.get_collection('stock_factor_pro')
+            sample_doc = collection.find_one({}, {'_id': 0})
+            if not sample_doc:
+                self.logger.warning("⚠️ 数据库中没有因子数据")
+                return []
+            
+            # 获取数据库中实际存在的字段
+            db_fields = set(sample_doc.keys()) - {'trade_date', 'ts_code', '_id'}
+            self.logger.info(f"📊 stock_factor_pro: {len(db_fields)}个因子")
+            
+            # 分离数据库因子和自定义衍生因子
+            db_factors = []
+            custom_factors = []
+            missing_factors = []
+            
+            for factor in factor_fields:
+                if factor in db_fields:
+                    db_factors.append(factor)
+                elif self._is_custom_derived_factor(factor):
+                    custom_factors.append(factor)
+                else:
+                    missing_factors.append(factor)
+            
+            self.logger.info(f"📊 因子验证结果:")
+            self.logger.info(f"   ✅ 数据库因子: {len(db_factors)}个")
+            self.logger.info(f"   🔧 自定义因子: {len(custom_factors)}个")
+            self.logger.info(f"   ❌ 未知因子: {len(missing_factors)}个")
+            
+            if missing_factors:
+                self.logger.warning(f"   未知因子前10个: {missing_factors[:10]}")
+            
+            # 返回数据库因子 + 自定义因子
+            return db_factors + custom_factors
+            
+        except Exception as e:
+            self.logger.error(f"❌ 数据库因子验证失败: {e}")
+            return factor_fields  # 失败时返回原列表
+    
+    def _is_custom_derived_factor(self, factor_name: str) -> bool:
+        """判断是否为自定义衍生因子"""
+        try:
+            custom_factors_config = self.config.get('factor_config', {}).get('factor_categories', {}).get('custom_derived_factors', {})
+            
+            for subcategory, subfactors in custom_factors_config.items():
+                if isinstance(subfactors, dict) and factor_name in subfactors:
+                    return True
+            return False
+        except:
+            return False
+    
+    def _load_from_json_backup(self) -> List[str]:
+        """从JSON文件加载技术因子作为备用方案"""
         try:
             factor_file = os.path.join(
                 os.path.dirname(__file__), 
@@ -167,12 +317,12 @@ class FactorAnalyzer:
             # 去重并排序
             factor_fields = sorted(list(set(factor_fields)))
             
-            self.logger.info(f"📊 加载技术因子字段: {len(factor_fields)}个")
+            self.logger.warning(f"⚠️ 使用JSON备用方案，仅加载技术因子: {len(factor_fields)}个")
             return factor_fields
             
         except Exception as e:
-            self.logger.error(f"❌ 因子字段加载失败: {e}")
-            # 使用配置文件中的备用因子列表
+            self.logger.error(f"❌ JSON备用方案也失败: {e}")
+            # 最后备用方案
             return self._get_backup_factors()
     
     def _get_backup_factors(self) -> List[str]:
@@ -248,11 +398,126 @@ class FactorAnalyzer:
         try:
             self.logger.info(f"📊 开始加载因子数据: {len(stock_codes)}只股票，{start_date} to {end_date}")
             
+            # 1. 加载原始因子数据（未标准化）
+            raw_data = self._load_primary_factors_raw(stock_codes, start_date, end_date)
+            
+            if raw_data.empty:
+                self.logger.error("❌ 没有加载到任何因子数据")
+                return pd.DataFrame()
+            
+            # 2. 计算自定义衍生因子（使用原始数据）
+            custom_data = self._calculate_custom_factors(raw_data, stock_codes, start_date, end_date)
+            
+            # 3. 合并自定义因子
+            if not custom_data.empty:
+                combined_data = raw_data.join(custom_data, how='outer')
+                self.logger.info(f"📊 合并数据: 数据库{raw_data.shape[1]}个 + 自定义{custom_data.shape[1]}个 = {combined_data.shape[1]}个")
+            else:
+                combined_data = raw_data
+                self.logger.info(f"📊 最终数据: {raw_data.shape[1]}个 (无自定义因子)")
+            
+            # 4. 对合并后的数据进行预处理（包括标准化）
+            final_data = self._preprocess_factor_data(combined_data)
+            self.logger.info(f"📊 数据库因子数据: {final_data.shape[1]}个因子")
+            
+            return final_data
+            
+        except Exception as e:
+            self.logger.error(f"❌ 因子数据加载失败: {e}")
+            return pd.DataFrame()
+    
+    def _load_primary_factors_raw(self, stock_codes: List[str], start_date: str, end_date: str) -> pd.DataFrame:
+        """加载原始因子数据 (stock_factor_pro) - 不进行标准化"""
+        try:
             collection = self.db_handler.get_collection('stock_factor_pro')
             
-            # 批量查询
+            # 批量查询 - 使用优化的批处理大小
             all_data = []
-            batch_size = 50
+            base_batch_size = self.config.get('factor_config', {}).get('factor_analysis', {}).get('batch_size', 50)
+            
+            # 根据硬件性能优化批大小
+            if self.device_manager and hasattr(self.device_manager, 'get_optimal_batch_size'):
+                try:
+                    batch_size = self.device_manager.get_optimal_batch_size(
+                        base_batch_size, 
+                        len(self.factor_fields), 
+                        len(stock_codes)
+                    )
+                except Exception as e:
+                    self.logger.warning(f"⚠️ 批大小优化失败，使用默认值: {e}")
+                    batch_size = base_batch_size
+            else:
+                batch_size = base_batch_size
+            
+            for i in range(0, len(stock_codes), batch_size):
+                batch_stocks = stock_codes[i:i+batch_size]
+                
+                # 转换日期格式 (YYYY-MM-DD -> YYYYMMDD)
+                start_date_str = start_date.replace('-', '')
+                end_date_str = end_date.replace('-', '')
+                
+                query = {
+                    'ts_code': {'$in': batch_stocks},
+                    'trade_date': {
+                        '$gte': start_date_str,
+                        '$lte': end_date_str
+                    }
+                }
+                
+                # 投影 - 只获取需要的字段
+                projection = {'_id': 0, 'ts_code': 1, 'trade_date': 1}
+                for factor in self.factor_fields:
+                    projection[factor] = 1
+                
+                cursor = collection.find(query, projection)
+                batch_data = list(cursor)
+                all_data.extend(batch_data)
+                
+                self.logger.info(f"  批次 {i//batch_size + 1}: 加载了 {len(batch_data)} 条记录")
+            
+            if not all_data:
+                self.logger.warning("⚠️ 未获取到任何因子数据")
+                return pd.DataFrame()
+            
+            # 转换为DataFrame
+            df = pd.DataFrame(all_data)
+            
+            # 重命名字段以保持一致性
+            if 'ts_code' in df.columns:
+                df = df.rename(columns={'ts_code': 'stock_code'})
+            
+            # 只做基本的数据清理，不进行标准化
+            df = self._basic_data_cleanup(df)
+            
+            self.logger.info(f"✅ 原始因子数据加载完成: {df.shape}")
+            return df
+            
+        except Exception as e:
+            self.logger.error(f"❌ 原始因子数据加载失败: {e}")
+            return pd.DataFrame()
+    
+    def _load_primary_factors(self, stock_codes: List[str], start_date: str, end_date: str) -> pd.DataFrame:
+        """加载主要因子数据 (stock_factor_pro)"""
+        try:
+            collection = self.db_handler.get_collection('stock_factor_pro')
+            
+            # 批量查询 - 使用优化的批处理大小
+            all_data = []
+            base_batch_size = self.config.get('factor_config', {}).get('factor_analysis', {}).get('batch_size', 50)
+            
+            # 根据硬件性能优化批大小
+            if self.device_manager and hasattr(self.device_manager, 'get_optimal_batch_size'):
+                try:
+                    batch_size = self.device_manager.get_optimal_batch_size(
+                        base_batch_size, 
+                        len(self.factor_fields), 
+                        len(stock_codes)
+                    )
+                except Exception as e:
+                    self.logger.warning(f"⚠️ 批大小优化失败，使用默认值: {e}")
+                    batch_size = base_batch_size
+            else:
+                batch_size = base_batch_size
             
             for i in range(0, len(stock_codes), batch_size):
                 batch_stocks = stock_codes[i:i+batch_size]
@@ -294,11 +559,86 @@ class FactorAnalyzer:
             # 数据预处理
             df = self._preprocess_factor_data(df)
             
-            self.logger.info(f"✅ 因子数据加载完成: {df.shape}")
+            self.logger.info(f"✅ 主要因子数据加载完成: {df.shape}")
             return df
             
         except Exception as e:
-            self.logger.error(f"❌ 因子数据加载失败: {e}")
+            self.logger.error(f"❌ 主要因子数据加载失败: {e}")
+            return pd.DataFrame()
+    
+    def _load_mario_factors(self, stock_codes: List[str], start_date: str, end_date: str) -> pd.DataFrame:
+        """加载Mario因子数据"""
+        try:
+            mario_data_list = []
+            
+            # 加载高优先级Mario因子
+            high_priority_data = self._load_mario_collection('mario_factors_high_priority', stock_codes, start_date, end_date)
+            if not high_priority_data.empty:
+                mario_data_list.append(high_priority_data)
+            
+            # 加载中优先级Mario因子
+            medium_priority_data = self._load_mario_collection('mario_factors_medium_priority', stock_codes, start_date, end_date)
+            if not medium_priority_data.empty:
+                mario_data_list.append(medium_priority_data)
+            
+            if not mario_data_list:
+                self.logger.warning("⚠️ 未加载到任何Mario因子数据")
+                return pd.DataFrame()
+            
+            # 合并Mario因子数据
+            mario_df = mario_data_list[0]
+            for i in range(1, len(mario_data_list)):
+                mario_df = mario_df.join(mario_data_list[i], how='outer')
+            
+            self.logger.info(f"✅ Mario因子数据加载完成: {mario_df.shape}")
+            return mario_df
+            
+        except Exception as e:
+            self.logger.error(f"❌ Mario因子数据加载失败: {e}")
+            return pd.DataFrame()
+    
+    def _load_mario_collection(self, collection_name: str, stock_codes: List[str], start_date: str, end_date: str) -> pd.DataFrame:
+        """加载单个Mario因子集合"""
+        try:
+            collection = self.db_handler.get_collection(collection_name)
+            
+            # 转换日期格式
+            start_date_str = start_date.replace('-', '')
+            end_date_str = end_date.replace('-', '')
+            
+            query = {
+                'ts_code': {'$in': stock_codes},
+                'trade_date': {
+                    '$gte': start_date_str,
+                    '$lte': end_date_str
+                }
+            }
+            
+            # 获取所有数据
+            cursor = collection.find(query, {'_id': 0})
+            data_list = list(cursor)
+            
+            if not data_list:
+                self.logger.warning(f"⚠️ {collection_name} 集合中没有数据")
+                return pd.DataFrame()
+            
+            # 转换为DataFrame
+            df = pd.DataFrame(data_list)
+            
+            # 重命名字段以保持一致性
+            if 'ts_code' in df.columns:
+                df = df.rename(columns={'ts_code': 'stock_code'})
+            
+            # 设置索引
+            if 'trade_date' in df.columns and 'stock_code' in df.columns:
+                df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
+                df = df.set_index(['trade_date', 'stock_code'])
+            
+            self.logger.info(f"📊 {collection_name}: 加载了 {df.shape} 数据")
+            return df
+            
+        except Exception as e:
+            self.logger.warning(f"⚠️ {collection_name} 加载失败: {e}")
             return pd.DataFrame()
     
     def _preprocess_factor_data(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -315,10 +655,13 @@ class FactorAnalyzer:
             if df.empty:
                 return df
             
-            # 设置索引
-            # 处理日期格式：YYYYMMDD -> YYYY-MM-DD
-            df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
-            df = df.set_index(['trade_date', 'stock_code'])
+            # 设置索引（如果还没有设置）
+            if not isinstance(df.index, pd.MultiIndex):
+                # 处理日期格式：YYYYMMDD -> YYYY-MM-DD
+                if 'trade_date' in df.columns:
+                    df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
+                if 'trade_date' in df.columns and 'stock_code' in df.columns:
+                    df = df.set_index(['trade_date', 'stock_code'])
             
             # 数据清洗
             preprocessing_config = self.config['factor_config']['preprocessing']
@@ -335,9 +678,10 @@ class FactorAnalyzer:
             elif fill_method == 'interpolate':
                 df = df.interpolate()
             
-            # 标准化
-            factor_columns = [col for col in df.columns if col in self.factor_fields]
-            df[factor_columns] = self.scaler.fit_transform(df[factor_columns])
+            # 标准化 - 对所有数值列进行标准化，排除索引列
+            factor_columns = [col for col in df.columns if col not in ['trade_date', 'stock_code', '_id']]
+            if factor_columns:
+                df[factor_columns] = self.scaler.fit_transform(df[factor_columns])
             
             self.logger.info(f"📊 因子数据预处理完成: {df.shape}")
             return df
@@ -504,22 +848,83 @@ class FactorAnalyzer:
                 return {}
             
             results = {}
-            factor_columns = [col for col in factor_data.columns if col in self.factor_fields]
+            # 只使用实际存在于数据中的因子字段，排除非因子列
+            exclude_cols = {'trade_date', 'ts_code', 'stock_code', '_id'}
+            factor_columns = [col for col in factor_data.columns 
+                            if col not in exclude_cols and 
+                            col in self.factor_fields and
+                            col != return_col]
+            
+            self.logger.info(f"📊 可用因子数量: {len(factor_columns)}/{len(self.factor_fields)}")
+            
+            if not factor_columns:
+                self.logger.warning("⚠️ 没有可用的因子数据进行IC计算")
+                return {}
             
             # 合并数据
             merged_data = factor_data.join(return_data[return_col], how='inner')
             
-            for factor in factor_columns:
+            # 使用GPU加速IC计算
+            if self.gpu_accelerator and len(factor_columns) > 10:
                 try:
-                    result = self._analyze_single_factor(
-                        merged_data, factor, return_col
+                    # 批量GPU计算
+                    factor_df = merged_data[factor_columns]
+                    return_df = merged_data[[return_col]]
+                    
+                    ic_results = self.gpu_accelerator.accelerated_ic_calculation(
+                        factor_df, return_df
                     )
-                    if result:
-                        results[factor] = result
-                        
+                    
+                    # 转换为FactorAnalysisResult格式
+                    for factor in factor_columns:
+                        if factor in ic_results.index:
+                            ic_value = ic_results.loc[factor, return_col]
+                            # 创建简化的结果对象
+                            result = FactorAnalysisResult(
+                                factor_name=factor,
+                                ic_mean=ic_value,
+                                ic_std=0.0,  # GPU批量计算暂不计算这些统计量
+                                ic_ir=0.0,
+                                rank_ic=0.0,
+                                t_stat=0.0,
+                                p_value=0.0,
+                                significance=abs(ic_value) > 0.02,
+                                turnover=0.0,
+                                sharpe_ratio=0.0,
+                                max_drawdown=0.0,
+                                analysis_date=datetime.now(),
+                                sample_size=len(merged_data)
+                            )
+                            results[factor] = result
+                    
+                    self.logger.info(f"⚡ GPU加速IC计算完成: {len(results)}个因子")
+                    
                 except Exception as e:
-                    self.logger.warning(f"⚠️ 因子 {factor} 分析失败: {e}")
-                    continue
+                    self.logger.warning(f"⚠️ GPU加速失败，回退到CPU计算: {e}")
+                    # 回退到原始CPU计算
+                    for factor in factor_columns:
+                        try:
+                            result = self._analyze_single_factor(
+                                merged_data, factor, return_col
+                            )
+                            if result:
+                                results[factor] = result
+                        except Exception as e:
+                            self.logger.warning(f"⚠️ 因子 {factor} 分析失败: {e}")
+                            continue
+            else:
+                # CPU计算 (小批量或无GPU)
+                for factor in factor_columns:
+                    try:
+                        result = self._analyze_single_factor(
+                            merged_data, factor, return_col
+                        )
+                        if result:
+                            results[factor] = result
+                            
+                    except Exception as e:
+                        self.logger.warning(f"⚠️ 因子 {factor} 分析失败: {e}")
+                        continue
             
             self.logger.info(f"✅ 因子IC计算完成，有效因子: {len(results)}")
             return results
@@ -800,29 +1205,104 @@ class FactorAnalyzer:
             return []
 
 
-if __name__ == "__main__":
-    # 测试代码
-    print("🚀 测试因子分析器...")
+    def _calculate_custom_factors(self, base_data: pd.DataFrame, stock_codes: List[str], start_date: str, end_date: str) -> pd.DataFrame:
+        """
+        计算自定义衍生因子
+        
+        Args:
+            base_data: 基础因子数据（包含OHLCV和技术指标）
+            stock_codes: 股票代码列表
+            start_date: 开始日期
+            end_date: 结束日期
+            
+        Returns:
+            自定义因子数据DataFrame
+        """
+        if not self.custom_factor_calculator:
+            self.logger.warning("⚠️ 自定义因子计算器未初始化，跳过自定义因子计算")
+            return pd.DataFrame()
+        
+        try:
+            custom_data_list = []
+            
+            # 为每只股票计算自定义因子
+            for stock_code in stock_codes:
+                # 获取该股票的数据 (索引是 [trade_date, stock_code])
+                try:
+                    stock_data = base_data.xs(stock_code, level='stock_code')
+                except KeyError:
+                    self.logger.debug(f"📊 股票{stock_code}在当前时间段数据不存在，跳过自定义因子计算")
+                    continue
+                
+                if stock_data.empty:
+                    continue
+                
+                # 确保有必要的OHLCV字段
+                required_fields = ['open', 'high', 'low', 'close', 'vol']
+                if not all(field in stock_data.columns for field in required_fields):
+                    self.logger.warning(f"⚠️ 股票{stock_code}缺少必要的OHLCV字段，跳过自定义因子计算")
+                    continue
+                
+                # 计算自定义因子
+                custom_factors = self.custom_factor_calculator.calculate_all_custom_factors(stock_data)
+                
+                if custom_factors.empty:
+                    continue
+                
+                # 重建MultiIndex: [trade_date, stock_code]
+                custom_factors['stock_code'] = stock_code
+                custom_factors = custom_factors.reset_index()
+                custom_factors = custom_factors.set_index(['trade_date', 'stock_code'])
+                
+                custom_data_list.append(custom_factors)
+            
+            if custom_data_list:
+                # 合并所有股票的自定义因子数据
+                custom_data = pd.concat(custom_data_list, axis=0)
+                successful_stocks = len(custom_data_list)
+                missing_stocks = len(stock_codes) - successful_stocks
+                self.logger.info(f"🔧 自定义因子计算完成: {custom_data.shape[1]}个因子，{successful_stocks}只股票成功")
+                if missing_stocks > 0:
+                    self.logger.debug(f"📊 数据统计: {missing_stocks}只股票在当前时间段无数据 (总共{len(stock_codes)}只)")
+                return custom_data
+            else:
+                self.logger.warning("⚠️ 没有计算出任何自定义因子")
+                return pd.DataFrame()
+                
+        except Exception as e:
+            self.logger.error(f"❌ 自定义因子计算失败: {e}")
+            return pd.DataFrame()
     
-    try:
-        analyzer = FactorAnalyzer()
+    def _basic_data_cleanup(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        基本数据清理，不包含标准化
         
-        # 运行因子分析
-        results = analyzer.run_factor_analysis(
-            start_date="2023-01-01",
-            end_date="2023-12-31"
-        )
-        
-        if results:
-            print("✅ 因子分析测试成功")
+        Args:
+            df: 原始数据DataFrame
             
-            # 获取Top20因子
-            top_factors = analyzer.get_top_factors(period='20d', top_k=20)
-            print(f"📊 Top20因子: {top_factors}")
-        else:
-            print("❌ 因子分析测试失败")
+        Returns:
+            清理后的DataFrame
+        """
+        try:
+            # 转换日期格式
+            if 'trade_date' in df.columns:
+                df['trade_date'] = pd.to_datetime(df['trade_date'].astype(str), format='%Y%m%d')
             
-    except Exception as e:
-        print(f"❌ 测试失败: {e}")
-        import traceback
-        traceback.print_exc()
+            # 设置MultiIndex
+            if 'trade_date' in df.columns and 'stock_code' in df.columns:
+                df = df.set_index(['trade_date', 'stock_code'])
+            
+            # 转换数值类型
+            numeric_columns = df.select_dtypes(include=[np.number]).columns
+            for col in numeric_columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+            
+            # 删除完全为空的列
+            df = df.dropna(how='all', axis=1)
+            
+            return df
+            
+        except Exception as e:
+            self.logger.error(f"❌ 基本数据清理失败: {e}")
+            return df
+

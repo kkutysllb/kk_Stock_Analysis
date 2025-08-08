@@ -42,26 +42,26 @@ class ValueInvestmentAdapter:
         self.description = "寻找低估值、高ROE、稳定增长的优质股票"
         self.db_handler = get_global_db_handler()
         
-        # 策略参数
+        # 策略参数 - 适配全市场选股，放宽部分条件以获得足够候选股票
         self.params = {
-            # 估值筛选
-            'pe_max': 25,           # PE < 25
-            'pb_max': 3,            # PB < 3
+            # 估值筛选 - 适度放宽以适应全市场
+            'pe_max': 35,           # PE < 35 (放宽)
+            'pb_max': 5,            # PB < 5 (放宽)
             'pe_ttm_min': 0,        # 确保TTM市盈率有效
-            'total_mv_min': 100000, # 总市值 > 10亿
+            'total_mv_min': 50000,  # 总市值 > 5亿 (降低门槛)
             
-            # ROE要求
-            'roe_min': 10,          # ROE >= 10%
-            'roe_avg_min': 12,      # 历史ROE均值 >= 12%
-            'roe_stable_threshold': 5,  # ROE稳定性要求
+            # ROE要求 - 保持核心价值投资理念但适度放宽
+            'roe_min': 8,           # ROE >= 8% (适度放宽)
+            'roe_avg_min': 10,      # 历史ROE均值 >= 10% (适度放宽)
+            'roe_stable_threshold': 8,  # ROE稳定性要求 (放宽)
             
-            # 成长性要求
-            'growth_score_min': 60,      # 成长性评分 >= 60
-            'profitability_score_min': 70, # 盈利能力评分 >= 70
+            # 成长性要求 - 降低评分要求以增加候选
+            'growth_score_min': 40,      # 成长性评分 >= 40 (放宽)
+            'profitability_score_min': 50, # 盈利能力评分 >= 50 (放宽)
             
-            # 财务健康度
-            'debt_ratio_max': 60,        # 资产负债率 <= 60%
-            'current_ratio_min': 1.2,    # 流动比率 >= 1.2
+            # 财务健康度 - 保持基本要求
+            'debt_ratio_max': 70,        # 资产负债率 <= 70% (适度放宽)
+            'current_ratio_min': 1.0,    # 流动比率 >= 1.0 (适度放宽)
             
             # 权重配置
             'technical_weight': 0.1,     # 技术面权重
@@ -70,6 +70,7 @@ class ValueInvestmentAdapter:
         }
     
     async def screen_stocks(self,
+                           trade_date: str = None,
                            market_cap: str = "all",
                            stock_pool: str = "all", 
                            limit: int = 20) -> Dict[str, Any]:
@@ -77,8 +78,9 @@ class ValueInvestmentAdapter:
         价值投资策略选股
         
         Args:
+            trade_date: 交易日期（回测系统使用）
             market_cap: 市值范围 (large/mid/small/all)
-            stock_pool: 股票池 (all/main/gem/star)
+            stock_pool: 股票池 (all/main/gem/star/shenwan_value)
             limit: 返回股票数量
             
         Returns:
@@ -145,10 +147,16 @@ class ValueInvestmentAdapter:
             match_conditions["total_mv"] = {"$lte": 1000000}  # <= 100亿
         
         # 股票池筛选
-        if stock_pool != "all":
+        if stock_pool == "shenwan_value":
+            # 申万传统价值行业股票池（向后兼容）
+            shenwan_value_stocks = await self._get_shenwan_value_stocks()
+            if shenwan_value_stocks:
+                match_conditions["ts_code"] = {"$in": shenwan_value_stocks}
+        elif stock_pool != "all":
             resolved_pool = await self._resolve_stock_pool([stock_pool])
             if resolved_pool:
                 match_conditions["ts_code"] = {"$in": resolved_pool}
+        # stock_pool == "all" 时不添加股票池限制，使用全市场选股
         
         pipeline.extend([
             # 第一步：匹配基础条件
@@ -433,6 +441,42 @@ class ValueInvestmentAdapter:
         except:
             return "20241231"  # 默认日期
     
+    async def _get_shenwan_value_stocks(self) -> List[str]:
+        """
+        获取申万传统价值行业股票池（向后兼容）
+        
+        Returns:
+            申万传统价值行业股票代码列表
+        """
+        try:
+            # 价值投资重点关注的申万一级行业（与DataManager保持一致）
+            value_industry_names = [
+                '银行', '房地产', '钢铁', '煤炭', '石油石化', 
+                '公用事业', '交通运输', '建筑装饰', '建筑材料',
+                '汽车', '机械设备', '基础化工', '电力设备'
+            ]
+            
+            # 获取申万行业成分股集合
+            industry_collection = self.db_handler.get_collection('index_member_all')
+            
+            # 查询股票代码 - 获取所有价值行业股票
+            projection = {'ts_code': 1, '_id': 0}
+            stocks = []
+            
+            for industry in value_industry_names:
+                query = {'l1_name': industry}
+                industry_stocks = list(industry_collection.find(query, projection))
+                stocks.extend(industry_stocks)
+            
+            # 提取股票代码并去重
+            stock_codes = list(set([stock['ts_code'] for stock in stocks if stock.get('ts_code')]))
+            
+            return sorted(stock_codes)
+            
+        except Exception as e:
+            print(f"❌ 获取申万传统价值行业股票池失败: {e}")
+            return []
+
     async def _resolve_stock_pool(self, stock_pools: List[str]) -> List[str]:
         """解析股票池代码"""
         # 这里需要根据实际的股票池配置来实现

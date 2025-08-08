@@ -174,29 +174,120 @@ class BacktestEngine:
         """
         self.logger.info("开始加载回测数据...")
         
-        # 获取股票池 - 根据策略指定的指数代码
+        # 获取股票池 - 根据策略类型选择合适的股票池
         if stock_codes is None:
-            # 检查策略是否指定了指数代码
-            index_code = "000510.CSI"  # 默认中证A500
-            if hasattr(self.strategy, 'get_index_code'):
-                index_code = self.strategy.get_index_code()
-                self.logger.info(f"策略指定使用指数: {index_code}")
+            # 检查是否为价值投资策略
+            strategy_type = getattr(self.strategy, 'strategy_type', '')
+            strategy_name = getattr(self.strategy, 'strategy_name', '')
             
-            stock_codes = self.data_manager.load_stock_universe(index_code)
+            if 'value_investment' in strategy_type.lower() or '价值投资' in strategy_name:
+                # 价值投资策略使用全市场股票池
+                self.logger.info("检测到价值投资策略，策略适配器将从全市场筛选优质股票")
+                self.logger.info("📝 策略适配器负责选股、评分，确保选股结果的一致性")
+                stock_codes = self.data_manager.load_all_market_universe()  # 加载全市场基础数据源
+            else:
+                # 其他策略使用指数股票池
+                index_code = "000510.CSI"  # 默认中证A500
+                if hasattr(self.strategy, 'get_index_code'):
+                    index_code = self.strategy.get_index_code()
+                    self.logger.info(f"策略指定使用指数: {index_code}")
+                
+                stock_codes = self.data_manager.load_stock_universe(index_code)
         
-        # 加载市场数据 - 如果策略支持评分，使用策略评分选择股票
-        strategy_scorer = None
-        if hasattr(self.strategy, '_calculate_resonance_score'):
-            strategy_scorer = self.strategy._calculate_resonance_score
-            self.logger.info("检测到策略评分功能，将使用策略评分选择最优股票")
-        
-        self.market_data = self.data_manager.load_market_data(
-            stock_codes=stock_codes,
-            start_date=self.config.backtest.start_date,
-            end_date=self.config.backtest.end_date,
-            max_stocks=max_stocks,
-            strategy_scorer=strategy_scorer
-        )
+        # 加载市场数据 - 根据策略类型使用不同的选股逻辑
+        if 'value_investment' in strategy_type.lower() or '价值投资' in strategy_name:
+            # 价值投资策略：策略适配器从全市场选股
+            self.logger.info("🎯 价值投资策略：策略适配器从全市场筛选优质股票")
+            self.logger.info(f"📊 策略适配器将运用专业评分机制选出最具价值投资潜力的股票")
+            
+            # 使用策略适配器从完整股票池中选股
+            try:
+                # 创建策略适配器并进行初步选股
+                from backtrader_strategies.strategy_adapters.value_investment_adapter import ValueInvestmentAdapter
+                adapter = ValueInvestmentAdapter()
+                
+                # 从全市场选股（不限制行业范围）
+                import asyncio
+                
+                # 使用全市场选股，获得更多候选股票
+                screening_result = asyncio.run(adapter.screen_stocks(
+                    stock_pool="all",  # 改为全市场选股
+                    limit=min(100, max_stocks * 4)  # 选出足够数量的候选股票
+                ))
+                
+                # 如果选股数量太少，降低筛选标准重新选股
+                initial_count = len(screening_result.get('stocks', []))
+                if initial_count < 20:
+                    self.logger.info(f"初次选股只有{initial_count}只，尝试降低筛选标准重新选股")
+                    # 备份原始参数
+                    original_params = adapter.params.copy()
+                    try:
+                        # 进一步放宽筛选条件
+                        adapter.params['pe_max'] = 60  # PE进一步放宽到50
+                        adapter.params['pb_max'] = 8   # PB进一步放宽到8
+                        adapter.params['roe_min'] = 5  # ROE进一步降低到5%
+                        adapter.params['total_mv_min'] = 20000  # 市值门槛降低到2亿
+                        adapter.params['growth_score_min'] = 20  # 成长性评分大幅降低
+                        adapter.params['profitability_score_min'] = 30  # 盈利能力评分大幅降低
+                        
+                        # 重新选股（仍然使用全市场）
+                        screening_result = asyncio.run(adapter.screen_stocks(
+                            stock_pool="all",  # 保持全市场选股
+                            limit=min(200, max_stocks * 6)  # 进一步增加候选数量
+                        ))
+                        
+                        relaxed_count = len(screening_result.get('stocks', []))
+                        self.logger.info(f"放宽标准后选出{relaxed_count}只股票")
+                        
+                    finally:
+                        # 恢复原始参数
+                        adapter.params = original_params
+                
+                selected_candidates = screening_result.get('stocks', [])
+                selected_stock_codes = [stock.get('ts_code') for stock in selected_candidates if stock.get('ts_code')]
+                
+                self.logger.info(f"🎯 策略适配器从全市场选出{len(selected_stock_codes)}只候选股票")
+                
+                # 完全依赖策略适配器的选股结果，不使用分层采样
+                if len(selected_stock_codes) == 0:
+                    raise ValueError("策略适配器选股失败，未找到符合条件的股票。建议：1)放宽筛选条件 2)选择其他时间段 3)检查数据完整性")
+                elif len(selected_stock_codes) < 5:
+                    self.logger.warning(f"策略适配器只选出{len(selected_stock_codes)}只股票，可能影响策略分散化效果")
+                else:
+                    self.logger.info(f"策略适配器选股成功，共选出{len(selected_stock_codes)}只优质股票")
+                
+                # 加载选中股票的市场数据
+                self.market_data = self.data_manager.load_market_data(
+                    stock_codes=selected_stock_codes,
+                    start_date=self.config.backtest.start_date,
+                    end_date=self.config.backtest.end_date,
+                    max_stocks=len(selected_stock_codes),
+                    strategy_scorer=None  # 价值投资策略适配器有自己的选股逻辑
+                )
+                
+                self.logger.info(f"📈 为价值投资策略加载了 {len(self.market_data)} 只优质股票的市场数据")
+                
+            except Exception as e:
+                self.logger.error(f"策略适配器选股失败: {e}")
+                # 不再使用降级处理，直接抛出异常
+                import traceback
+                traceback.print_exc()
+                raise ValueError(f"价值投资策略适配器选股失败: {e}。请检查：1)数据库连接 2)数据完整性 3)筛选条件是否过于严格") from e
+            
+        else:
+            # 其他策略：使用原有逻辑
+            strategy_scorer = None
+            if hasattr(self.strategy, '_calculate_resonance_score'):
+                strategy_scorer = self.strategy._calculate_resonance_score
+                self.logger.info("检测到策略评分功能，将使用策略评分选择最优股票")
+            
+            self.market_data = self.data_manager.load_market_data(
+                stock_codes=stock_codes,
+                start_date=self.config.backtest.start_date,
+                end_date=self.config.backtest.end_date,
+                max_stocks=max_stocks,
+                strategy_scorer=strategy_scorer
+            )
         
         # 获取交易日历
         self.trading_dates = self.data_manager.get_trading_dates(

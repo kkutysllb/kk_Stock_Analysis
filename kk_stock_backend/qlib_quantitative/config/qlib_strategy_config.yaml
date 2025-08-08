@@ -15,38 +15,45 @@ data:
   provider: "mongo"                    # 数据提供者: mongo, qlib, csv
   universe: "csi500"                   # 股票池: csi500, csi300, sse50
   
+  # MongoDB集合配置
+  collections:
+    primary: "stock_factor_pro"        # 主要数据集合(包含价格+技术指标+估值)
+    factors_high: "mario_factors_high_priority"    # 高优先级因子
+    factors_medium: "mario_factors_medium_priority" # 中优先级因子
+    money_flow: "stock_money_flow"     # 资金流向数据
+  
   # 时间配置
   start_time: "2020-01-01"            # 回测开始时间
   end_time: "2023-12-31"              # 回测结束时间
   train_start_time: "2018-01-01"      # 训练开始时间
   train_end_time: "2019-12-31"        # 训练结束时间
   
-  # 数据字段
+  # 数据字段 (已匹配数据库字段名)
   fields:
     - "open"
     - "high"
     - "low"
     - "close"
-    - "volume"
+    - "vol"              # 对应数据库的vol字段
     - "amount"
-    - "turnover"
+    - "turnover_rate"     # 对应数据库的turnover_rate字段
     - "pe_ttm"
     - "pb"
-    - "market_cap"
+    - "total_mv"          # 对应数据库的total_mv字段(市值)
   
   # 数据过滤
   filters:
-    # 市值过滤
-    market_cap:
+    # 市值过滤 (使用total_mv字段)
+    total_mv:
       enabled: true
       min_cap: 1000000000              # 最小市值10亿
       max_cap: 500000000000            # 最大市值5000亿
     
-    # 流动性过滤
+    # 流动性过滤 (使用实际字段名)
     liquidity:
       enabled: true
-      min_turnover: 10000000           # 最小日成交额1000万
-      min_volume_ratio: 0.01           # 最小成交量比率
+      min_amount: 10000000             # 最小日成交额1000万 (amount字段)
+      min_turnover_rate: 0.01          # 最小换手率 (turnover_rate字段)
     
     # 价格过滤
     price:
@@ -71,6 +78,11 @@ feature:
   params:
     instruments: "csi500"
     freq: "day"
+    # 数据源映射
+    data_source: "stock_factor_pro"    # 主要数据来源
+    additional_sources:
+      - "mario_factors_high_priority"  # 额外高优先级因子
+      - "mario_factors_medium_priority" # 额外中优先级因子
     
   # 特征选择
   feature_selection:

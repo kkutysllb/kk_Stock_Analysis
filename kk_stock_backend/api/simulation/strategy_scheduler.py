@@ -101,7 +101,7 @@ class StrategyScheduler:
             
             # 根据策略的内置调仓频率设置定时任务
             if strategy_name == 'taishang_3':
-                # 太上老君3号：每5个交易日（每周一次）
+                # 小市值动量策略：每5个交易日（每周一次）
                 self.scheduler.add_job(
                     self._execute_strategy_job,
                     'cron',
@@ -113,7 +113,7 @@ class StrategyScheduler:
                     misfire_grace_time=300  # 5分钟容错时间
                 )
             else:
-                # 太上老君1号、2号：每日检查
+                # 多趋势共振策略、布林带策略：每日检查
                 self.scheduler.add_job(
                     self._execute_strategy_job,
                     'cron',

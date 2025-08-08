@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-太上老君策略配置文件
+Backtrader策略配置文件
 定义策略的全局配置参数
 """
 
@@ -32,6 +32,17 @@ class DatabaseConfig:
     balance_sheet_collection: str = "stock_balance_sheet"         # 资产负债表数据
     income_statement_collection: str = "stock_income"             # 利润表数据
     cash_flow_collection: str = "stock_cash_flow"                 # 现金流量表数据
+    
+    # 高优先级集合 - 量化策略必需
+    index_daily_collection: str = "index_daily"                   # 指数日线数据
+    index_weight_collection: str = "index_weight"                 # 指数权重数据
+    money_flow_collection: str = "stock_money_flow"               # 资金流向数据
+    dividend_collection: str = "stock_dividend"                   # 分红送股数据
+    trading_calendar_collection: str = "infrastructure_trading_calendar"  # 交易日历
+    
+    # 策略特殊集合
+    margin_detail_collection: str = "margin_detail"               # 融资融券明细
+    limit_list_collection: str = "limit_list_daily"               # 涨跌停数据
     
     # 连接配置
     connect_timeout: int = 30000
@@ -486,6 +497,118 @@ class DatabaseConfig:
                 'total_market_cap': 'total_mv',        # 总市值(万元)
                 'free_share': 'free_share',            # 自由流通股本
                 'total_share': 'total_share',          # 总股本
+                
+                # ==================== 资产负债表字段映射 (来自stock_balance_sheet集合) ====================
+                'bs_ann_date': 'ann_date',             # 公告日期
+                'bs_end_date': 'end_date',             # 报告期
+                'bs_f_ann_date': 'f_ann_date',         # 首次公告日期
+                'bs_comp_type': 'comp_type',           # 公司类型
+                'bs_report_type': 'report_type',       # 报表类型
+                'bond_payable': 'bond_payable',        # 应付债券
+                'cap_rese': 'cap_rese',                # 资本公积金
+                'cash_reser_cb': 'cash_reser_cb',      # 央行准备金
+                'cb_borr': 'cb_borr',                  # 向央行借款
+                'decr_in_disbur': 'decr_in_disbur',    # 拆出资金净减少额
+                'defer_tax_assets': 'defer_tax_assets', # 递延所得税资产
+                'depos': 'depos',                      # 客户资金存款
+                'depos_in_oth_bfi': 'depos_in_oth_bfi', # 存放同业款项
+                'depos_oth_bfi': 'depos_oth_bfi',      # 同业存放款项
+                'deriv_assets': 'deriv_assets',        # 衍生金融资产
+                'deriv_liab': 'deriv_liab',            # 衍生金融负债
+                'estimated_liab': 'estimated_liab',    # 预计负债
+                'fix_assets': 'fix_assets',            # 固定资产
+                'goodwill': 'goodwill',                # 商誉
+                'intan_assets': 'intan_assets',        # 无形资产
+                'invest_real_estate': 'invest_real_estate', # 投资性房地产
+                'loan_oth_bank': 'loan_oth_bank',      # 同业借款
+                'loanto_oth_bank_fi': 'loanto_oth_bank_fi', # 拆借给同业
+                'oth_assets': 'oth_assets',            # 其他资产
+                'oth_comp_income': 'oth_comp_income',  # 其他综合收益
+                'oth_eqt_tools': 'oth_eqt_tools',      # 其他权益工具
+                'oth_eqt_tools_p_shr': 'oth_eqt_tools_p_shr', # 其他权益工具-优先股
+                'oth_liab': 'oth_liab',                # 其他负债
+                'payroll_payable': 'payroll_payable',  # 应付职工薪酬
+                'prec_metals': 'prec_metals',          # 贵金属
+                'pur_resale_fa': 'pur_resale_fa',      # 买入返售金融资产
+                'sold_for_repur_fa': 'sold_for_repur_fa', # 卖出回购金融资产
+                'surplus_rese': 'surplus_rese',        # 盈余公积
+                'taxes_payable': 'taxes_payable',      # 应交税费
+                'bs_total_assets': 'total_assets',     # 资产总计
+                'bs_total_liab': 'total_liab',         # 负债总计
+                'bs_total_share': 'total_share',       # 实收资本
+                'trad_asset': 'trad_asset',            # 交易性金融资产
+                'trading_fl': 'trading_fl',            # 交易性金融负债
+                'undistr_porfit': 'undistr_porfit',    # 未分配利润
+                
+                # ==================== 指数日线数据字段映射 (来自index_daily集合) ====================
+                'idx_open': 'open',                    # 指数开盘价
+                'idx_high': 'high',                    # 指数最高价
+                'idx_low': 'low',                      # 指数最低价
+                'idx_close': 'close',                  # 指数收盘价
+                'idx_pre_close': 'pre_close',          # 指数前收盘价
+                'idx_change': 'change',                # 指数涨跌额
+                'idx_pct_chg': 'pct_chg',              # 指数涨跌幅
+                'idx_vol': 'vol',                      # 指数成交量
+                'idx_amount': 'amount',                # 指数成交额
+                
+                # ==================== 指数权重数据字段映射 (来自index_weight集合) ====================
+                'index_code': 'index_code',            # 指数代码
+                'con_code': 'con_code',                # 成分股代码
+                'weight': 'weight',                    # 权重
+                'idx_trade_date': 'trade_date',        # 指数交易日期
+                
+                # ==================== 资金流向数据字段映射 (来自stock_money_flow集合) ====================
+                'buy_sm_amount': 'buy_sm_amount',      # 小单买入金额
+                'buy_sm_vol': 'buy_sm_vol',            # 小单买入量
+                'buy_md_amount': 'buy_md_amount',      # 中单买入金额
+                'buy_md_vol': 'buy_md_vol',            # 中单买入量
+                'buy_lg_amount': 'buy_lg_amount',      # 大单买入金额
+                'buy_lg_vol': 'buy_lg_vol',            # 大单买入量
+                'buy_elg_amount': 'buy_elg_amount',    # 特大单买入金额
+                'buy_elg_vol': 'buy_elg_vol',          # 特大单买入量
+                'sell_sm_amount': 'sell_sm_amount',    # 小单卖出金额
+                'sell_sm_vol': 'sell_sm_vol',          # 小单卖出量
+                'sell_md_amount': 'sell_md_amount',    # 中单卖出金额
+                'sell_md_vol': 'sell_md_vol',          # 中单卖出量
+                'sell_lg_amount': 'sell_lg_amount',    # 大单卖出金额
+                'sell_lg_vol': 'sell_lg_vol',          # 大单卖出量
+                'sell_elg_amount': 'sell_elg_amount',  # 特大单卖出金额
+                'sell_elg_vol': 'sell_elg_vol',        # 特大单卖出量
+                'net_mf_amount': 'net_mf_amount',      # 净流入金额
+                'net_mf_vol': 'net_mf_vol',            # 净流入量
+                
+                # ==================== 分红送股数据字段映射 (来自stock_dividend集合) ====================
+                'div_ann_date': 'ann_date',            # 分红公告日期
+                'div_end_date': 'end_date',            # 分红截止日期
+                'cash_div': 'cash_div',                # 现金分红
+                'cash_div_tax': 'cash_div_tax',        # 现金分红税后
+                'stk_div': 'stk_div',                  # 股票股利
+                'div_proc': 'div_proc',                # 分红进度
+                
+                # ==================== 交易日历数据字段映射 (来自infrastructure_trading_calendar集合) ====================
+                'cal_date': 'cal_date',                # 日历日期
+                'exchange': 'exchange',                # 交易所
+                'is_open': 'is_open',                  # 是否开市
+                
+                # ==================== 融资融券数据字段映射 (来自margin_detail集合) ====================
+                'rzye': 'rzye',                        # 融资余额
+                'rzmre': 'rzmre',                      # 融资买入额
+                'rzche': 'rzche',                      # 融资偿还额
+                'rqye': 'rqye',                        # 融券余额
+                'rqmcl': 'rqmcl',                      # 融券卖出量
+                'rqchl': 'rqchl',                      # 融券偿还量
+                
+                # ==================== 涨跌停数据字段映射 (来自limit_list_daily集合) ====================
+                'limit': 'limit',                      # 涨跌停标识
+                'limit_times': 'limit_times',          # 连续涨跌停次数
+                'open_times': 'open_times',            # 开板次数
+                'first_time': 'first_time',            # 首次涨跌停时间
+                'last_time': 'last_time',              # 最后涨跌停时间
+                'limit_amount': 'amount',              # 涨跌停成交额
+                'fd_amount': 'fd_amount',              # 封单金额
+                'float_mv': 'float_mv',                # 流通市值
+                'limit_industry': 'industry',          # 涨跌停股票行业
+                'strth': 'strth',                      # 涨停强度
             }
 
 
@@ -558,197 +681,6 @@ class StrategyConfig:
 
 
 @dataclass
-class MultiTrendConfig:
-    """
-    多趋势共振策略配置
-    """
-    # 均线参数
-    sma_short: int = 5
-    sma_medium: int = 20
-    sma_long: int = 60
-    ema_period: int = 12
-    
-    # RSI参数
-    rsi_period: int = 14
-    rsi_oversold: float = 30.0
-    rsi_overbought: float = 70.0
-    
-    # MACD参数
-    macd_fast: int = 12
-    macd_slow: int = 26
-    macd_signal: int = 9
-    
-    # 成交量参数
-    volume_ma_period: int = 20
-    volume_ratio_threshold: float = 1.5
-    
-    # 波动率参数
-    volatility_period: int = 20
-    volatility_threshold: float = 0.02
-    
-    # 得分权重
-    trend_weight: float = 0.3
-    momentum_weight: float = 0.25
-    volume_weight: float = 0.2
-    technical_weight: float = 0.25
-    
-    # 选股阈值
-    min_score: float = 0.6
-    top_n_stocks: int = 50
-
-
-@dataclass
-class BollConfig:
-    """
-    布林带策略配置
-    """
-    # 布林带参数
-    boll_period: int = 20
-    boll_std: float = 2.0
-    
-    # RSI参数
-    rsi_period: int = 14
-    rsi_oversold: float = 30.0
-    rsi_overbought: float = 70.0
-    
-    # 成交量参数
-    volume_ma_period: int = 20
-    volume_ratio_threshold: float = 1.2
-    
-    # 波动率参数
-    volatility_period: int = 10
-    volatility_threshold: float = 0.015
-    
-    # 趋势过滤
-    trend_ma_period: int = 50
-    enable_trend_filter: bool = True
-    
-    # 买卖信号阈值
-    buy_threshold: float = 0.7
-    sell_threshold: float = 0.3
-    
-    # 持仓管理
-    max_hold_days: int = 30
-    profit_target: float = 0.15
-
-
-@dataclass
-class SmallCapMomentumConfig:
-    """
-    小市值动量策略配置
-    """
-    # 市值范围
-    min_market_cap: float = 20e8         # 最小市值20亿
-    max_market_cap: float = 200e8        # 最大市值200亿
-    
-    # 动量参数
-    momentum_period: int = 20
-    momentum_threshold: float = 0.05
-    
-    # RSI参数
-    rsi_period: int = 14
-    rsi_min: float = 30.0
-    rsi_max: float = 80.0
-    
-    # 成交量参数
-    volume_ma_period: int = 20
-    volume_ratio_min: float = 1.0
-    volume_ratio_max: float = 5.0
-    
-    # 价格参数
-    price_min: float = 5.0
-    price_max: float = 50.0
-    
-    # 波动率参数
-    volatility_period: int = 20
-    volatility_min: float = 0.01
-    volatility_max: float = 0.05
-    
-    # 趋势参数
-    trend_ma_short: int = 10
-    trend_ma_long: int = 30
-    
-    # 得分权重
-    momentum_weight: float = 0.25
-    technical_weight: float = 0.2
-    volume_weight: float = 0.2
-    volatility_weight: float = 0.15
-    price_pattern_weight: float = 0.2
-    
-    # 选股参数
-    min_score: float = 0.65
-    top_n_stocks: int = 30
-
-
-@dataclass
-class RIMStrategyConfig:
-    """
-    RIM剩余收益模型策略配置（太上老君3号）
-    """
-    # RIM估值模型参数
-    rim_discount_rate: float = 0.12        # 权益资本成本12%
-    rim_terminal_growth: float = 0.03      # 永续增长率3%
-    rim_forecast_years: int = 5            # 预测期5年
-    rim_book_value_threshold: float = 0.1  # 净资产门槛值
-    rim_roe_convergence_rate: float = 0.20 # ROE收敛率20%
-    rim_long_term_roe: float = 0.12        # 长期ROE均值12%
-    rim_dividend_payout: float = 0.5       # 分红率50%
-    
-    # RIM估值权重和技术指标权重
-    rim_weight: float = 0.60               # RIM估值权重60%
-    technical_weight: float = 0.40         # 技术指标权重40%
-    
-    # 事件驱动交易参数（参考太上老君2号）
-    price_rebound_threshold: float = 0.02   # 价格反弹确认阈值2%
-    volume_confirm_ratio: float = 1.2       # 成交量确认倍数1.2倍
-    volume_selloff_ratio: float = 2.0       # 成交量异常放大卖出倍数2倍
-    oversold_ma_threshold: float = 0.90     # 超跌阈值（相对MA20的90%）
-    
-    # 止盈止损参数
-    profit_take_threshold: float = 0.20     # 止盈阈值20%
-    profit_pullback_threshold: float = 0.06 # 盈利回撤阈值6%
-    stop_loss_threshold: float = 0.12       # 止损阈值12%
-    rim_overvaluation_threshold: float = 1.3 # RIM估值高估阈值（价格超过RIM估值30%）
-    
-    # 买入触发条件参数
-    rim_discount_threshold: float = 0.15    # RIM估值折价阈值15%
-    min_roe_threshold: float = 0.05         # 最低ROE要求5%
-    max_debt_ratio: float = 0.70           # 最高资产负债率70%
-    
-    # 财务质量过滤参数
-    min_eps_threshold: float = 0.01        # 最低EPS阈值
-    min_bvps_threshold: float = 1.0        # 最低每股净资产阈值
-    max_pe_threshold: float = 100.0        # 最高市盈率阈值（过滤异常值）
-    min_revenue_growth: float = -0.30      # 最低营收增长率-30%（允许一定程度下滑）
-    
-    # 技术指标参数
-    ma_period: int = 20                    # 移动平均周期20日
-    volatility_period: int = 20            # 波动率计算周期
-    momentum_period: int = 10              # 动量指标周期
-    volume_ma_period: int = 20             # 成交量均线周期
-    
-    # 选股和持仓参数
-    max_positions: int = 25                # 最大持仓25只
-    max_single_weight: float = 0.04        # 单股最大权重4%
-    stock_pool_size: int = 50              # 股票池大小50只
-    max_position_value: float = 40000      # 单股最大金额4万（100万/25只）
-    cash_reserve_ratio: float = 0.05       # 现金储备比例5%
-    
-    # 风险控制参数
-    max_daily_trades: int = 3              # 每日最大交易股票数
-    min_holding_days: int = 5              # 最短持有天数
-    max_portfolio_turnover: float = 2.0    # 最大组合换手率200%
-    
-    # 过滤条件
-    exclude_st: bool = True                # 排除ST股票
-    exclude_suspended: bool = True         # 排除停牌股票
-    exclude_new_listed_days: int = 60      # 排除上市60天内新股
-    min_market_cap: float = 10e8           # 最小市值10亿
-    max_market_cap: float = 1000e8         # 最大市值1000亿（中证1000范围）
-    min_price: float = 2.0                 # 最低股价2元
-
-
-@dataclass
 class LoggingConfig:
     """
     日志配置
@@ -784,11 +716,7 @@ class Config:
         self.strategy = StrategyConfig()
         self.logging = LoggingConfig()
         
-        # 策略特定配置
-        self.multi_trend = MultiTrendConfig()
-        self.boll = BollConfig()
-        self.small_cap_momentum = SmallCapMomentumConfig()
-        self.rim_strategy = RIMStrategyConfig()  # 太上老君3号RIM策略配置
+        # 策略特定配置 - 已移除旧的多周期配置类
         
         # 从环境变量加载配置
         self._load_from_env()
@@ -834,11 +762,8 @@ class Config:
             策略配置对象
         """
         strategy_configs = {
-            'multi_trend': self.multi_trend,
-            'boll': self.boll,
-            'small_cap_momentum': self.small_cap_momentum,
-            'rim_strategy': self.rim_strategy,
-            'taishang_3': self.rim_strategy  # 太上老君3号策略别名
+            # 旧的多周期配置已移除
+            # 现在使用8大策略适配器的配置
         }
         
         return strategy_configs.get(strategy_name.lower())
@@ -868,11 +793,8 @@ class Config:
             'database': self.database.__dict__,
             'backtest': self.backtest.__dict__,
             'strategy': self.strategy.__dict__,
-            'logging': self.logging.__dict__,
-            'multi_trend': self.multi_trend.__dict__,
-            'boll': self.boll.__dict__,
-            'small_cap_momentum': self.small_cap_momentum.__dict__,
-            'rim_strategy': self.rim_strategy.__dict__
+            'logging': self.logging.__dict__
+            # 旧的多周期配置已移除
         }
     
     def validate(self) -> List[str]:
@@ -918,7 +840,7 @@ class Config:
 config = Config()
 
 
-# 预定义配置模板
+# 预定义配置模板 - 简化版本，只保留策略基础配置
 CONFIG_TEMPLATES = {
     'conservative': {
         'strategy': {
@@ -926,10 +848,6 @@ CONFIG_TEMPLATES = {
             'stop_loss_pct': -0.10,
             'take_profit_pct': 0.20,
             'max_single_position': 0.08
-        },
-        'multi_trend': {
-            'min_score': 0.7,
-            'top_n_stocks': 30
         }
     },
     'aggressive': {
@@ -938,10 +856,6 @@ CONFIG_TEMPLATES = {
             'stop_loss_pct': -0.20,
             'take_profit_pct': 0.40,
             'max_single_position': 0.15
-        },
-        'multi_trend': {
-            'min_score': 0.5,
-            'top_n_stocks': 80
         }
     },
     'balanced': {
@@ -950,10 +864,6 @@ CONFIG_TEMPLATES = {
             'stop_loss_pct': -0.06,
             'take_profit_pct': 0.12,
             'max_single_position': 0.10
-        },
-        'multi_trend': {
-            'min_score': 0.6,
-            'top_n_stocks': 50
         }
     }
 }
@@ -976,46 +886,3 @@ def load_config_template(template_name: str) -> Config:
     new_config.update_config(CONFIG_TEMPLATES[template_name])
     
     return new_config
-
-
-def main():
-    """
-    主函数：演示配置的使用
-    """
-    # 创建默认配置
-    cfg = Config()
-    
-    # 验证配置
-    errors = cfg.validate()
-    if errors:
-        print("配置验证失败:")
-        for error in errors:
-            print(f"  - {error}")
-    else:
-        print("配置验证通过")
-    
-    # 显示配置信息
-    print(f"\n数据库配置:")
-    print(f"  主机: {cfg.database.host}:{cfg.database.port}")
-    print(f"  数据库: {cfg.database.database}")
-    
-    print(f"\n回测配置:")
-    print(f"  初始资金: {cfg.backtest.initial_cash:,.0f}")
-    print(f"  回测期间: {cfg.backtest.start_date} 至 {cfg.backtest.end_date}")
-    print(f"  手续费率: {cfg.backtest.commission_rate:.4f}")
-    
-    print(f"\n策略配置:")
-    print(f"  最大持仓: {cfg.strategy.max_positions}")
-    print(f"  调仓频率: {cfg.strategy.rebalance_frequency}天")
-    print(f"  止损比例: {cfg.strategy.stop_loss_pct:.1%}")
-    print(f"  止盈比例: {cfg.strategy.take_profit_pct:.1%}")
-    
-    # 测试配置模板
-    print("\n测试保守型配置模板:")
-    conservative_config = load_config_template('conservative')
-    print(f"  最大持仓: {conservative_config.strategy.max_positions}")
-    print(f"  最小得分: {conservative_config.multi_trend.min_score}")
-
-
-if __name__ == '__main__':
-    main()

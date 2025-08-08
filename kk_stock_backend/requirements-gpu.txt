@@ -1,0 +1,32 @@
+# GPU加速环境依赖文件
+# 适用于NVIDIA GPU (RTX 4090等) + CUDA 12.x环境
+
+# 基础依赖 (从requirements.txt继承)
+-r requirements.txt
+
+# PyTorch CUDA版本 (推荐通过conda安装)
+# conda install pytorch torchvision torchaudio pytorch-cuda=12.4 -c pytorch -c nvidia
+
+# GPU加速科学计算
+cupy-cuda12x>=12.0.0   # GPU加速NumPy (CUDA 12.x)
+cudf-cu12>=23.0.0      # GPU加速Pandas (CUDA 12.x)
+cuspatial-cu12>=23.0.0 # GPU加速地理计算
+cugraph-cu12>=23.0.0   # GPU加速图计算
+
+# GPU监控工具
+nvidia-ml-py>=12.535.0 # NVIDIA GPU监控
+GPUtil>=1.4.0          # 简化GPU监控
+
+# CUDA工具 (可选)
+numba>=0.57.0          # JIT编译器，支持CUDA
+cuda-python>=12.0.0    # CUDA Python接口
+
+# 深度学习相关
+torch-audio>=2.0.0     # 音频处理 (如果需要)
+torch-geometric>=2.3.0 # 图神经网络 (如果需要)
+
+# 注意事项：
+# 1. PyTorch建议通过conda安装CUDA版本以确保兼容性
+# 2. CuPy/CuDF等库需要与CUDA版本匹配
+# 3. 部分库可能需要额外的CUDA驱动和工具包
+# 4. Mac用户请使用requirements-mac.txt

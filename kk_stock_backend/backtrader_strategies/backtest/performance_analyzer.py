@@ -473,11 +473,16 @@ class PerformanceAnalyzer:
         Returns:
             用户友好的策略显示名称
         """
-        # 策略类型到友好名称的映射
+                # 策略类型到友好名称的映射
         strategy_mapping = {
-            'multi_trend': '太上老君1号策略',
-            'boll': '太上老君2号策略', 
-            'taishang_3factor': '太上老君3号策略'
+            'value_investment_adapter': '价值投资策略',
+            'growth_stock_adapter': '成长股策略',
+            'momentum_breakthrough_adapter': '动量突破策略',
+            'high_dividend_adapter': '高股息策略',
+            'technical_breakthrough_adapter': '技术突破策略',
+            'oversold_rebound_adapter': '超跌反弹策略',
+            'limit_up_leader_adapter': '连板龙头策略',
+            'fund_flow_tracking_adapter': '融资追踪策略'
         }
         
         self.logger.info(f"🔍 友好名称转换: raw_name='{raw_name}', strategy_type='{strategy_type}'")
@@ -501,7 +506,7 @@ class PerformanceAnalyzer:
             return '量化策略'
         
         # 如果原名称已经是友好名称，直接返回
-        if '太上老君' in raw_name:
+        if '策略' in raw_name:
             return raw_name
             
         # 默认返回通用名称
@@ -1381,21 +1386,45 @@ class PerformanceAnalyzer:
         strategy_type = strategy_info.get('strategy_type', '')
         strategy_name = strategy_info.get('strategy_name', '')
         
-        # 太上老君3号（3因子量化选股策略）
-        if '3因子' in strategy_type or '太上老君3号' in strategy_name:
-            rsi_period = strategy_info.get('rsi_period', 'N/A')
-            rebalance_period = strategy_info.get('rebalance_period', 'N/A')
-            return f"太上老君3号得分(RSI{rsi_period}周+{rebalance_period}日调仓)"
+        # 价值投资策略
+        if 'value_investment' in strategy_type or '价值投资' in strategy_name:
+            pe_max = strategy_info.get('pe_max', 'N/A')
+            roe_min = strategy_info.get('roe_min', 'N/A')
+            return f"价值投资得分(PE<{pe_max}, ROE≥{roe_min}%)"
         
-        # 太上老君2号（好奇布偶猫BOLL策略）
-        elif 'BOLL' in strategy_type or '好奇布偶猫' in strategy_name or '太上老君2号' in strategy_name:
-            volume_ratio = strategy_info.get('buy_volume_ratio', 'N/A')
-            return f"太上老君2号得分(成交量≥{volume_ratio}倍)"
+        # 成长股策略
+        elif 'growth_stock' in strategy_type or '成长股' in strategy_name:
+            growth_min = strategy_info.get('eps_growth_min', 'N/A')
+            return f"成长股得分(EPS增长≥{growth_min}%)"
         
-        # 太上老君1号（多趋势共振策略）
-        elif '多趋势' in strategy_name or 'Multi' in strategy_name or '太上老君1号' in strategy_name:
-            min_score = strategy_info.get('min_resonance_score', 'N/A')
-            return f"太上老君1号得分(共振≥{min_score}分)"
+        # 动量突破策略
+        elif 'momentum_breakthrough' in strategy_type or '动量突破' in strategy_name:
+            rsi_min = strategy_info.get('rsi_min', 'N/A')
+            return f"动量突破得分(RSI≥{rsi_min})"
+        
+        # 高股息策略
+        elif 'high_dividend' in strategy_type or '高股息' in strategy_name:
+            dividend_min = strategy_info.get('dividend_yield_min', 'N/A')
+            return f"高股息得分(股息率≥{dividend_min}%)"
+        
+        # 技术突破策略
+        elif 'technical_breakthrough' in strategy_type or '技术突破' in strategy_name:
+            threshold = strategy_info.get('breakthrough_threshold', 'N/A')
+            return f"技术突破得分(信号≥{threshold}分)"
+        
+        # 超跌反弹策略
+        elif 'oversold_rebound' in strategy_type or '超跌反弹' in strategy_name:
+            rsi_max = strategy_info.get('rsi_max', 'N/A')
+            return f"超跌反弹得分(RSI≤{rsi_max})"
+        
+        # 连板龙头策略
+        elif 'limit_up_leader' in strategy_type or '连板龙头' in strategy_name:
+            return f"连板龙头得分(连板数≥2)"
+        
+        # 融资追踪策略
+        elif 'fund_flow_tracking' in strategy_type or '融资追踪' in strategy_name:
+            margin_min = strategy_info.get('margin_buy_trend_min', 'N/A')
+            return f"融资追踪得分(融资买入≥{margin_min})"
         
         # 其他策略
         else:

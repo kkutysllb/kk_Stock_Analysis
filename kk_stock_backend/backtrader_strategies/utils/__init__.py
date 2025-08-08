@@ -6,7 +6,7 @@
 """
 
 __version__ = "1.0.0"
-__author__ = "太上老君量化团队"
+__author__ = "KK量化团队"
 
 # 导入工具类
 from .visualization_config import init_visualization, get_chinese_font

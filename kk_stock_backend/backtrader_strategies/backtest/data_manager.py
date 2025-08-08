@@ -86,6 +86,50 @@ class DataManager:
             self.stock_universe = []
             return self.stock_universe
     
+    def load_all_market_universe(self) -> List[str]:
+        """
+        加载全市场股票池
+        注意：此方法只提供基础数据源，具体的筛选、评分、选股由策略适配器负责
+        
+        Returns:
+            全市场股票代码列表（基础数据源，不做任何筛选）
+        """
+        try:
+            self.logger.info(f"加载全市场基础股票池")
+            
+            # 获取全市场股票（从股票基本信息表获取所有有效股票）
+            stock_basic_collection = self.db_handler.get_collection('infrastructure_stock_basic')
+            
+            # 查询所有A股市场股票
+            query = {
+                'market': {'$in': ['主板', '中小板', '创业板', '科创板']},  # A股市场
+            }
+            projection = {'ts_code': 1, '_id': 0}
+            
+            cursor = stock_basic_collection.find(query, projection)
+            stock_codes = [doc['ts_code'] for doc in cursor if doc.get('ts_code')]
+            
+            # 基本过滤：只保留正常的A股代码格式
+            filtered_stock_codes = []
+            for code in stock_codes:
+                if code and (code.endswith('.SZ') or code.endswith('.SH')):
+                    filtered_stock_codes.append(code)
+            
+            stock_codes = sorted(filtered_stock_codes)
+            
+            self.logger.info(f"全市场基础股票池加载完成，总数量: {len(stock_codes)}只股票")
+            self.logger.info("📝 注意：数据管理器仅提供基础数据源，具体选股、评分、调仓由策略适配器负责")
+            
+            # 更新股票池
+            self.stock_universe = stock_codes
+            
+            return self.stock_universe
+            
+        except Exception as e:
+            self.logger.error(f"加载全市场基础股票池失败: {e}")
+            # 如果数据库查询失败，这是系统问题，不应该降级
+            raise e
+    
     def load_stock_data(self, 
                        stock_code: str, 
                        start_date: str, 
@@ -323,13 +367,7 @@ class DataManager:
             # 最终数据验证
             result_df = result_df.dropna(subset=['open', 'high', 'low', 'close'])
             
-            # 调试输出：检查最终WR数据
-            if stock_code in ['002003.SZ', '600761.SH'] and not result_df.empty:
-                print(f"🔍 {stock_code} 最终WR数据:")
-                print(f"   wr1: {result_df['wr1'].iloc[0] if 'wr1' in result_df.columns else 'N/A'}")
-                print(f"   wr2: {result_df['wr2'].iloc[0] if 'wr2' in result_df.columns else 'N/A'}")
-                print(f"   volume_ma20: {result_df['volume_ma20'].iloc[0] if 'volume_ma20' in result_df.columns else 'N/A'}")
-            
+           
             # 计算技术指标
             if include_indicators:
                 # 计算20日成交量移动平均
@@ -636,16 +674,7 @@ class DataManager:
             if target_date in df.index:
                 row = df.loc[target_date]
                 data_dict = row.to_dict()
-                
-                # 调试输出
-                if stock_code in ['002003.SZ', '600761.SH'] and date in ['2021-01-04', '2021-01-05']:
-                    print(f"🔍 {stock_code} {date} 数据字典检查:")
-                    print(f"   ma20: {data_dict.get('ma20', 'N/A')} (类型: {type(data_dict.get('ma20'))})")
-                    print(f"   ma5: {data_dict.get('ma5', 'N/A')} (类型: {type(data_dict.get('ma5'))})")
-                    print(f"   volume_ma20: {data_dict.get('volume_ma20', 'N/A')} (类型: {type(data_dict.get('volume_ma20'))})")
-                    print(f"   DataFrame列: {list(df.columns)}")
-                    print(f"   DataFrame中ma20值: {row.get('ma20', 'N/A')}")
-                
+                            
                 return data_dict
             else:
                 # 找到最近的交易日
@@ -909,39 +938,242 @@ class DataManager:
         """清理数据缓存"""
         self.data_cache.clear()
         self.logger.info("数据缓存已清理")
-
-
-if __name__ == "__main__":
-    # 测试数据管理器
-    print("🚀 测试数据管理器...")
     
-    # 设置日志
-    logging.basicConfig(level=logging.INFO)
-    
-    data_manager = DataManager()
-    
-    # 测试加载股票池
-    stock_universe = data_manager.load_stock_universe()
-    print(f"股票池大小: {len(stock_universe)}")
-    print(f"前10只股票: {stock_universe[:10]}")
-    
-    # 测试加载单只股票数据
-    if stock_universe:
-        test_stock = stock_universe[0]
-        df = data_manager.load_stock_data(
-            stock_code=test_stock,
-            start_date='2024-01-01',
-            end_date='2024-12-31',
-            include_indicators=True
-        )
+    def load_index_data(self, index_code: str, start_date: str, end_date: str) -> pd.DataFrame:
+        """
+        加载指数数据
         
-        if not df.empty:
-            print(f"\n{test_stock} 数据概览:")
-            print(f"数据行数: {len(df)}")
-            print(f"数据列数: {len(df.columns)}")
-            print(f"日期范围: {df.index.min()} 到 {df.index.max()}")
-            print(f"数据列: {list(df.columns)}")
-            print("\n最新5天数据:")
-            print(df.tail())
+        Args:
+            index_code: 指数代码
+            start_date: 开始日期
+            end_date: 结束日期
+            
+        Returns:
+            指数数据DataFrame
+        """
+        try:
+            collection = self.db_handler.get_collection(self.db_config.index_daily_collection)
+            
+            query = {
+                'ts_code': index_code,
+                'trade_date': {
+                    '$gte': start_date.replace('-', ''),
+                    '$lte': end_date.replace('-', '')
+                }
+            }
+            
+            cursor = collection.find(query).sort('trade_date', 1)
+            data = list(cursor)
+            
+            if not data:
+                return pd.DataFrame()
+            
+            df = pd.DataFrame(data)
+            df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
+            df.set_index('trade_date', inplace=True)
+            
+            # 应用字段映射
+            field_mapping = self.db_config.field_mapping
+            mapped_data = {}
+            for target_field, source_field in field_mapping.items():
+                if target_field.startswith('idx_') and source_field in df.columns:
+                    mapped_data[target_field] = df[source_field]
+            
+            result_df = pd.DataFrame(mapped_data)
+            return result_df
+            
+        except Exception as e:
+            self.logger.error(f"加载指数 {index_code} 数据失败: {e}")
+            return pd.DataFrame()
     
-    print("✅ 数据管理器测试完成")
+    def load_money_flow_data(self, stock_code: str, start_date: str, end_date: str) -> pd.DataFrame:
+        """
+        加载资金流向数据
+        
+        Args:
+            stock_code: 股票代码
+            start_date: 开始日期
+            end_date: 结束日期
+            
+        Returns:
+            资金流向数据DataFrame
+        """
+        try:
+            collection = self.db_handler.get_collection(self.db_config.money_flow_collection)
+            
+            query = {
+                'ts_code': stock_code,
+                'trade_date': {
+                    '$gte': start_date.replace('-', ''),
+                    '$lte': end_date.replace('-', '')
+                }
+            }
+            
+            cursor = collection.find(query).sort('trade_date', 1)
+            data = list(cursor)
+            
+            if not data:
+                return pd.DataFrame()
+            
+            df = pd.DataFrame(data)
+            df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
+            df.set_index('trade_date', inplace=True)
+            
+            # 应用字段映射
+            field_mapping = self.db_config.field_mapping
+            mapped_data = {}
+            money_flow_fields = [k for k in field_mapping.keys() if any(
+                prefix in k for prefix in ['buy_', 'sell_', 'net_mf_']
+            )]
+            
+            for target_field in money_flow_fields:
+                source_field = field_mapping[target_field]
+                if source_field in df.columns:
+                    mapped_data[target_field] = df[source_field]
+            
+            result_df = pd.DataFrame(mapped_data)
+            return result_df
+            
+        except Exception as e:
+            self.logger.error(f"加载股票 {stock_code} 资金流向数据失败: {e}")
+            return pd.DataFrame()
+    
+    def load_dividend_data(self, stock_code: str, start_date: str, end_date: str) -> pd.DataFrame:
+        """
+        加载分红数据
+        
+        Args:
+            stock_code: 股票代码
+            start_date: 开始日期
+            end_date: 结束日期
+            
+        Returns:
+            分红数据DataFrame
+        """
+        try:
+            collection = self.db_handler.get_collection(self.db_config.dividend_collection)
+            
+            query = {
+                'ts_code': stock_code,
+                'end_date': {
+                    '$gte': start_date.replace('-', ''),
+                    '$lte': end_date.replace('-', '')
+                }
+            }
+            
+            cursor = collection.find(query).sort('end_date', 1)
+            data = list(cursor)
+            
+            if not data:
+                return pd.DataFrame()
+            
+            df = pd.DataFrame(data)
+            if 'end_date' in df.columns:
+                df['end_date'] = pd.to_datetime(df['end_date'], format='%Y%m%d')
+                df.set_index('end_date', inplace=True)
+            
+            # 应用字段映射
+            field_mapping = self.db_config.field_mapping
+            mapped_data = {}
+            dividend_fields = [k for k in field_mapping.keys() if k.startswith('div_') or k in ['cash_div', 'stk_div']]
+            
+            for target_field in dividend_fields:
+                source_field = field_mapping[target_field]
+                if source_field in df.columns:
+                    mapped_data[target_field] = df[source_field]
+            
+            result_df = pd.DataFrame(mapped_data)
+            return result_df
+            
+        except Exception as e:
+            self.logger.error(f"加载股票 {stock_code} 分红数据失败: {e}")
+            return pd.DataFrame()
+    
+    def load_margin_data(self, stock_code: str, start_date: str, end_date: str) -> pd.DataFrame:
+        """
+        加载融资融券数据
+        
+        Args:
+            stock_code: 股票代码
+            start_date: 开始日期
+            end_date: 结束日期
+            
+        Returns:
+            融资融券数据DataFrame
+        """
+        try:
+            collection = self.db_handler.get_collection(self.db_config.margin_detail_collection)
+            
+            query = {
+                'ts_code': stock_code,
+                'trade_date': {
+                    '$gte': start_date.replace('-', ''),
+                    '$lte': end_date.replace('-', '')
+                }
+            }
+            
+            cursor = collection.find(query).sort('trade_date', 1)
+            data = list(cursor)
+            
+            if not data:
+                return pd.DataFrame()
+            
+            df = pd.DataFrame(data)
+            df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
+            df.set_index('trade_date', inplace=True)
+            
+            # 应用字段映射
+            field_mapping = self.db_config.field_mapping
+            mapped_data = {}
+            margin_fields = ['rzye', 'rzmre', 'rzche', 'rqye', 'rqmcl', 'rqchl']
+            
+            for target_field in margin_fields:
+                source_field = field_mapping.get(target_field, target_field)
+                if source_field in df.columns:
+                    mapped_data[target_field] = df[source_field]
+            
+            result_df = pd.DataFrame(mapped_data)
+            return result_df
+            
+        except Exception as e:
+            self.logger.error(f"加载股票 {stock_code} 融资融券数据失败: {e}")
+            return pd.DataFrame()
+    
+    def load_trading_calendar(self, start_date: str, end_date: str, exchange: str = 'SSE') -> pd.DataFrame:
+        """
+        加载交易日历数据
+        
+        Args:
+            start_date: 开始日期
+            end_date: 结束日期
+            exchange: 交易所代码
+            
+        Returns:
+            交易日历DataFrame
+        """
+        try:
+            collection = self.db_handler.get_collection(self.db_config.trading_calendar_collection)
+            
+            query = {
+                'exchange': exchange,
+                'cal_date': {
+                    '$gte': start_date.replace('-', ''),
+                    '$lte': end_date.replace('-', '')
+                }
+            }
+            
+            cursor = collection.find(query).sort('cal_date', 1)
+            data = list(cursor)
+            
+            if not data:
+                return pd.DataFrame()
+            
+            df = pd.DataFrame(data)
+            df['cal_date'] = pd.to_datetime(df['cal_date'], format='%Y%m%d')
+            df.set_index('cal_date', inplace=True)
+            
+            return df
+            
+        except Exception as e:
+            self.logger.error(f"加载交易日历数据失败: {e}")
+            return pd.DataFrame()
