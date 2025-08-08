@@ -1609,41 +1609,39 @@ class PerformanceAnalyzer:
             基准数据字典
         """
         try:
-            # 导入数据库模块
-            import sys
-            import os
-            # 添加项目根目录到路径
-            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-            sys.path.insert(0, project_root)
-            
+            # 使用现有的数据库处理器
             try:
-                from data_fetch.database_manager import DatabaseManager
-                db_manager = DatabaseManager()
+                # 导入数据库处理器
+                from kk_stock_backend.api.global_db import get_global_db_handler
+                db_handler = get_global_db_handler()
                 
-                # 使用传入的基准指数代码
-                
-                # 查询基准指数数据
-                query = """
-                    SELECT trade_date, close 
-                    FROM stock_daily_basic 
-                    WHERE ts_code = %s 
-                    AND trade_date >= %s 
-                    AND trade_date <= %s 
-                    ORDER BY trade_date
-                """
+                # 使用传入的基准指数代码，查询基准指数数据
+                collection = db_handler.get_collection('stock_factor_pro')
                 
                 # 转换日期格式（YYYY-MM-DD -> YYYYMMDD）
                 start_date_fmt = start_date.replace('-', '')
                 end_date_fmt = end_date.replace('-', '')
                 
-                result = db_manager.execute_query(query, (benchmark_code, start_date_fmt, end_date_fmt))
+                # 查询基准指数数据
+                query_filter = {
+                    'ts_code': benchmark_code,
+                    'trade_date': {
+                        '$gte': start_date_fmt,
+                        '$lte': end_date_fmt
+                    }
+                }
+                
+                projection = {'trade_date': 1, 'close': 1, '_id': 0}
+                
+                cursor = collection.find(query_filter, projection).sort('trade_date', 1)
+                result = list(cursor)
                 
                 if not result:
                     self.logger.warning(f"未找到基准指数 {benchmark_code} 的数据")
                     return self._generate_fallback_benchmark_data(dates)
                 
                 # 处理基准数据
-                benchmark_df = pd.DataFrame(result, columns=['trade_date', 'close'])
+                benchmark_df = pd.DataFrame(result)
                 benchmark_df['trade_date'] = pd.to_datetime(benchmark_df['trade_date'], format='%Y%m%d')
                 benchmark_df['trade_date_str'] = benchmark_df['trade_date'].dt.strftime('%Y-%m-%d')
                 

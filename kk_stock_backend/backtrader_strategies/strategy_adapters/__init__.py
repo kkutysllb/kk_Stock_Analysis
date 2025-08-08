@@ -4,27 +4,21 @@
 策略适配器子模块
 Strategy Adapters Submodule
 
-本模块包含所有策略适配器，用于从API接口层分离出核心选股逻辑。
+本模块包含8大量化选股策略适配器，用于从API接口层分离出核心选股逻辑。
 该架构调整将策略核心逻辑集中管理，API层只负责接口功能。
 
-包含策略：
-1. 太上老君1号 - 价值动量策略 (multi_trend_strategy_adapter.py)
-2. 太上老君2号 - BOLL择时策略 (curious_ragdoll_boll_strategy_adapter.py)
-3. 太上老君3号 - 小市值动量策略 (taishang_3_factor_strategy_adapter.py)
-4. 价值投资策略 (value_investment_adapter.py)
-5. 成长股策略 (growth_stock_adapter.py)
-6. 动量突破策略 (momentum_breakthrough_adapter.py)
-7. 高股息策略 (high_dividend_adapter.py)
-8. 技术突破策略 (technical_breakthrough_adapter.py)
-9. 超跌反弹策略 (oversold_rebound_adapter.py)
-10. 连板龙头策略 (limit_up_leader_adapter.py)
-11. 资金追踪策略 (fund_flow_tracking_adapter.py)
+8大核心策略：
+1. 价值投资策略 (value_investment_adapter.py)
+2. 成长股策略 (growth_stock_adapter.py)
+3. 动量突破策略 (momentum_breakthrough_adapter.py)
+4. 高股息策略 (high_dividend_adapter.py)
+5. 技术突破策略 (technical_breakthrough_adapter.py)
+6. 超跌反弹策略 (oversold_rebound_adapter_simple.py)
+7. 连板龙头策略 (limit_up_leader_adapter_simple.py)
+8. 融资追踪策略 (fund_flow_tracking_adapter.py)
 """
 
-# 导入策略适配器
-from .multi_trend_strategy_adapter import MultiTrendResonanceStrategyAdapter
-from .curious_ragdoll_boll_strategy_adapter import CuriousRagdollBollStrategyAdapter
-from .taishang_3_factor_strategy_adapter import TaiShang3FactorStrategyAdapter
+# 导入8大核心策略适配器
 from .value_investment_adapter import ValueInvestmentAdapter
 from .growth_stock_adapter import GrowthStockAdapter
 from .momentum_breakthrough_adapter import MomentumBreakthroughAdapter
@@ -34,36 +28,28 @@ from .oversold_rebound_adapter_simple import OversoldReboundAdapter
 from .limit_up_leader_adapter_simple import LimitUpLeaderAdapter
 from .fund_flow_tracking_adapter import FundFlowTrackingAdapter
 
-# 策略适配器注册表
+# 8大核心策略适配器注册表
 STRATEGY_ADAPTERS = {
-    # 太上老君系列策略
-    "multi_trend_strategy_adapter": MultiTrendResonanceStrategyAdapter,
-    "curious_ragdoll_boll_strategy_adapter": CuriousRagdollBollStrategyAdapter,
-    "taishang_3_factor_strategy_adapter": TaiShang3FactorStrategyAdapter,
-    
-    # API策略模版适配器
-    "value_investment_adapter": ValueInvestmentAdapter,
-    "growth_stock_adapter": GrowthStockAdapter,
-    "momentum_breakthrough_adapter": MomentumBreakthroughAdapter,
-    "high_dividend_adapter": HighDividendAdapter,
-    "technical_breakthrough_adapter": TechnicalBreakthroughAdapter,
-    "oversold_rebound_adapter": OversoldReboundAdapter,
-    "limit_up_leader_adapter": LimitUpLeaderAdapter,
-    "fund_flow_tracking_adapter": FundFlowTrackingAdapter,
+    "value_investment_adapter": ValueInvestmentAdapter,           # 价值投资策略
+    "growth_stock_adapter": GrowthStockAdapter,                   # 成长股策略
+    "momentum_breakthrough_adapter": MomentumBreakthroughAdapter, # 动量突破策略
+    "high_dividend_adapter": HighDividendAdapter,                 # 高股息策略
+    "technical_breakthrough_adapter": TechnicalBreakthroughAdapter, # 技术突破策略
+    "oversold_rebound_adapter": OversoldReboundAdapter,           # 超跌反弹策略
+    "limit_up_leader_adapter": LimitUpLeaderAdapter,             # 连板龙头策略
+    "fund_flow_tracking_adapter": FundFlowTrackingAdapter,       # 融资追踪策略
 }
 
-# 策略类型分类
+# 8大策略类型分类
 STRATEGY_TYPES = {
-    "value": ["multi_trend_strategy_adapter", "value_investment_adapter"],
-    "growth": ["growth_stock_adapter"],
-    "momentum": ["momentum_breakthrough_adapter"],
-    "dividend": ["high_dividend_adapter"],
-    "technical": ["technical_breakthrough_adapter"],
-    "rebound": ["oversold_rebound_adapter"],
-    "limit_up": ["limit_up_leader_adapter"],
-    "fund_flow": ["fund_flow_tracking_adapter"],
-    "timing": ["curious_ragdoll_boll_strategy_adapter"],
-    "factor": ["taishang_3_factor_strategy_adapter"]
+    "value": ["value_investment_adapter"],          # 价值投资
+    "growth": ["growth_stock_adapter"],            # 成长股
+    "momentum": ["momentum_breakthrough_adapter"],  # 动量突破
+    "dividend": ["high_dividend_adapter"],         # 高股息
+    "technical": ["technical_breakthrough_adapter"], # 技术突破
+    "rebound": ["oversold_rebound_adapter"],       # 超跌反弹
+    "limit_up": ["limit_up_leader_adapter"],      # 连板龙头
+    "fund_flow": ["fund_flow_tracking_adapter"],  # 融资追踪
 }
 
 def get_strategy_adapter(name: str):
@@ -119,10 +105,7 @@ def list_all_strategy_types():
 
 # 导出的公共接口
 __all__ = [
-    # 策略适配器类
-    'MultiTrendResonanceStrategyAdapter',
-    'CuriousRagdollBollStrategyAdapter', 
-    'TaiShang3FactorStrategyAdapter',
+    # 8大核心策略适配器类
     'ValueInvestmentAdapter',
     'GrowthStockAdapter',
     'MomentumBreakthroughAdapter',

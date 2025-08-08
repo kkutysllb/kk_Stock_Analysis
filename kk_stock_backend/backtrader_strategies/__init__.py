@@ -17,10 +17,16 @@ __author__ = "KK Stock Backend"
 # 导入配置类
 from .config import Config
 
-# 导入策略相关模块
-from .strategies import *
-from .data_feed import *
-from .utils import *
+# 导入数据源和工具模块（如果存在）
+try:
+    from .data_feed import *
+except ImportError:
+    pass
+
+try:
+    from .utils import *
+except ImportError:
+    pass
 
 # 导入回测引擎（如果存在）
 try:
@@ -35,27 +41,17 @@ except ImportError:
         def generate_signals(self, current_date, market_data, portfolio_info):
             return []
 
-# 导入策略适配器
+# 导入8大策略适配器
 try:
-    from .multi_trend_strategy_adapter import MultiTrendResonanceStrategyAdapter
+    from .strategy_adapters import STRATEGY_ADAPTERS, STRATEGY_TYPES
 except ImportError:
-    MultiTrendResonanceStrategyAdapter = None
-
-try:
-    from .curious_ragdoll_boll_strategy_adapter import CuriousRagdollBollStrategyAdapter
-except ImportError:
-    CuriousRagdollBollStrategyAdapter = None
-
-try:
-    from .taishang_3_factor_strategy_adapter import TaiShang3FactorStrategyAdapter
-except ImportError:
-    TaiShang3FactorStrategyAdapter = None
+    STRATEGY_ADAPTERS = {}
+    STRATEGY_TYPES = {}
 
 # 导出主要类和函数
 __all__ = [
     'Config',
     'StrategyInterface',
-    'MultiTrendResonanceStrategyAdapter',
-    'CuriousRagdollBollStrategyAdapter', 
-    'TaiShang3FactorStrategyAdapter'
+    'STRATEGY_ADAPTERS',
+    'STRATEGY_TYPES'
 ]

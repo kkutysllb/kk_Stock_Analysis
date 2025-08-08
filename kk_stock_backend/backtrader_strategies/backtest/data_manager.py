@@ -181,30 +181,113 @@ class DataManager:
             
             # 添加技术指标
             if include_indicators:
-                # 需要加载的技术指标字段（标准化名称）
+                # 需要加载的技术指标字段（基于全量数据库字段映射） 
                 indicator_field_names = [
-                    # 多周期移动平均线
-                    'ma5', 'ma10', 'ma20', 'ma30', 'ma60', 'ma90', 'ma120', 'ma250',
-                    # EMA指标
-                    'ema5', 'ema10', 'ema20',
-                    # MACD指标
-                    'macd_dif', 'macd_dea', 'macd_macd',
-                    # KDJ指标
-                    'kdj_k', 'kdj_d', 'kdj_j',
-                    # 多周期RSI指标
+                    # ==================== 基础市场数据 ====================
+                    'change', 'pct_chg', 'adj_factor',
+                    
+                    # ==================== 复权价格数据 ====================
+                    'open_hfq', 'high_hfq', 'low_hfq', 'close_hfq',
+                    'open_qfq', 'high_qfq', 'low_qfq', 'close_qfq',
+                    
+                    # ==================== 市值和估值指标 ====================
+                    'total_mv', 'circ_mv', 'pe', 'pe_ttm', 'pb', 'ps', 'ps_ttm',
+                    'dv_ratio', 'dv_ttm', 'total_share', 'float_share', 'free_share',
+                    
+                    # ==================== 成交量和流动性指标 ====================
+                    'turnover_rate', 'turnover_rate_f', 'volume_ratio',
+                    
+                    # ==================== 移动平均线系列 ====================
+                    # 简单移动平均(SMA) - 不复权
+                    'ma5', 'ma10', 'ma20', 'ma30', 'ma60', 'ma90', 'ma250',  # 移除ma120(不存在)
+                    # 简单移动平均(SMA) - 后复权  
+                    'ma5_hfq', 'ma10_hfq', 'ma20_hfq', 'ma30_hfq', 'ma60_hfq', 'ma90_hfq', 'ma250_hfq',
+                    # 简单移动平均(SMA) - 前复权
+                    'ma5_qfq', 'ma10_qfq', 'ma20_qfq', 'ma30_qfq', 'ma60_qfq', 'ma90_qfq', 'ma250_qfq',
+                    # 指数移动平均(EMA) - 不复权
+                    'ema5', 'ema10', 'ema20', 'ema30', 'ema60', 'ema90', 'ema250',
+                    # 指数移动平均(EMA) - 后复权
+                    'ema5_hfq', 'ema10_hfq', 'ema20_hfq', 'ema30_hfq', 'ema60_hfq', 'ema90_hfq', 'ema250_hfq',
+                    # 指数移动平均(EMA) - 前复权  
+                    'ema5_qfq', 'ema10_qfq', 'ema20_qfq', 'ema30_qfq', 'ema60_qfq', 'ema90_qfq', 'ema250_qfq',
+                    # EXPMA指数移动平均
+                    'expma12', 'expma50', 'expma12_hfq', 'expma50_hfq', 'expma12_qfq', 'expma50_qfq',
+                    
+                    # ==================== RSI相对强弱指标系列 ====================
                     'rsi6', 'rsi12', 'rsi24',
-                    # 布林带指标
+                    'rsi6_hfq', 'rsi12_hfq', 'rsi24_hfq',
+                    'rsi6_qfq', 'rsi12_qfq', 'rsi24_qfq',
+                    
+                    # ==================== MACD指标系列 ====================
+                    'macd_dif', 'macd_dea', 'macd_macd',
+                    'macd_dif_hfq', 'macd_dea_hfq', 'macd_macd_hfq',
+                    'macd_dif_qfq', 'macd_dea_qfq', 'macd_macd_qfq',
+                    
+                    # ==================== 布林带指标系列 ====================
                     'boll_upper', 'boll_mid', 'boll_lower',
-                    # 威廉指标
-                    'wr', 'wr1', 'wr2',  # 包含兼容性字段
-                    # 动量指标
-                    'mtm', 'roc',
-                    # 资金流指标
-                    'mfi', 'emv', 'vr',
-                    # 其他指标
-                    'cci', 'turnover_rate', 'volume_ratio',
-                    # 估值指标
-                    'pe_ttm', 'pb', 'ps_ttm', 'total_mv'
+                    'boll_upper_hfq', 'boll_mid_hfq', 'boll_lower_hfq',
+                    'boll_upper_qfq', 'boll_mid_qfq', 'boll_lower_qfq',
+                    
+                    # ==================== KDJ随机指标系列 ====================
+                    'kdj_k', 'kdj_d', 'kdj_j',
+                    'kdj_k_hfq', 'kdj_d_hfq', 'kdj_j_hfq',
+                    'kdj_k_qfq', 'kdj_d_qfq', 'kdj_j_qfq',
+                    
+                    # ==================== 威廉指标系列 ====================
+                    'wr', 'wr1',
+                    'wr_hfq', 'wr1_hfq',
+                    'wr_qfq', 'wr1_qfq',
+                    
+                    # ==================== BIAS乖离率指标系列 ====================
+                    'bias1', 'bias2', 'bias3',
+                    'bias1_hfq', 'bias2_hfq', 'bias3_hfq',
+                    'bias1_qfq', 'bias2_qfq', 'bias3_qfq',
+                    
+                    # ==================== DMI趋向指标系列 ====================
+                    'dmi_pdi', 'dmi_mdi', 'dmi_adx', 'dmi_adxr',
+                    'dmi_pdi_hfq', 'dmi_mdi_hfq', 'dmi_adx_hfq', 'dmi_adxr_hfq',
+                    'dmi_pdi_qfq', 'dmi_mdi_qfq', 'dmi_adx_qfq', 'dmi_adxr_qfq',
+                    
+                    # ==================== BRAR人气意愿指标系列 ====================
+                    'brar_ar', 'brar_br',
+                    'brar_ar_hfq', 'brar_br_hfq',
+                    'brar_ar_qfq', 'brar_br_qfq',
+                    
+                    # ==================== 其他重要技术指标 ====================
+                    'cci', 'cci_hfq', 'cci_qfq',                      # CCI商品通道指数
+                    'atr', 'atr_hfq', 'atr_qfq',                      # ATR真实波幅
+                    'roc', 'roc_hfq', 'roc_qfq',                      # ROC变动率
+                    'mtm', 'mtm_hfq', 'mtm_qfq',                      # MTM动量指标
+                    'psy', 'psy_hfq', 'psy_qfq',                      # PSY心理线
+                    'psyma', 'psyma_hfq', 'psyma_qfq',                # PSYMA心理线移动平均
+                    'obv', 'obv_hfq', 'obv_qfq',                      # OBV累积能量
+                    'emv', 'emv_hfq', 'emv_qfq',                      # EMV简易波动
+                    'mfi', 'mfi_hfq', 'mfi_qfq',                      # MFI资金流量
+                    'vr', 'vr_hfq', 'vr_qfq',                         # VR成交量变异率
+                    'mass', 'mass_hfq', 'mass_qfq',                   # MASS梅斯线
+                    'ma_mass', 'ma_mass_hfq', 'ma_mass_qfq',          # MA_MASS梅斯线移动平均
+                    'cr', 'cr_hfq', 'cr_qfq',                         # CR指标
+                    'asi', 'asit', 'asi_hfq', 'asit_hfq', 'asi_qfq', 'asit_qfq', # ASI振动升降指标
+                    'trix', 'trix_hfq', 'trix_qfq',                   # TRIX三重指数平滑
+                    'dpo', 'dpo_hfq', 'dpo_qfq',                      # DPO去趋势价格震荡
+                    'bbi', 'bbi_hfq', 'bbi_qfq',                      # BBI多空指标
+                    
+                    # ==================== 高级技术指标 ====================
+                    'dfma_dif', 'dfma_difma',                         # DFMA动态平均
+                    'dfma_dif_hfq', 'dfma_difma_hfq',
+                    'dfma_dif_qfq', 'dfma_difma_qfq',
+                    'ktn_upper', 'ktn_mid', 'ktn_down',               # KTN肯特纳通道
+                    'ktn_upper_hfq', 'ktn_mid_hfq', 'ktn_down_hfq',
+                    'ktn_upper_qfq', 'ktn_mid_qfq', 'ktn_down_qfq',
+                    'taq_up', 'taq_mid', 'taq_down',                  # TAQ抛物线指标
+                    'taq_up_hfq', 'taq_mid_hfq', 'taq_down_hfq',
+                    'taq_up_qfq', 'taq_mid_qfq', 'taq_down_qfq',
+                    'xsii_td1', 'xsii_td2', 'xsii_td3', 'xsii_td4',  # XSII小时四度空间指标
+                    'xsii_td1_hfq', 'xsii_td2_hfq', 'xsii_td3_hfq', 'xsii_td4_hfq',
+                    'xsii_td1_qfq', 'xsii_td2_qfq', 'xsii_td3_qfq', 'xsii_td4_qfq',
+                    
+                    # ==================== 涨跌统计指标 ====================
+                    'updays', 'downdays', 'topdays', 'lowdays',
                 ]
                 
                 # 使用field_mapping加载指标数据
@@ -389,7 +472,7 @@ class DataManager:
             self.logger.error(f"获取交易日失败: {e}")
             # 返回简单的工作日列表作为备选
             date_range = pd.date_range(start_date, end_date, freq='B')  # B表示工作日
-            return [date.strftime('%Y-%m-%d') for date in date_range]
+            return [date.strftime('%Y%m%d') for date in date_range]
     
     def _select_stocks_by_strategy_score(self, stock_codes: List[str], start_date: str, 
                                        end_date: str, max_stocks: int, strategy_scorer) -> List[str]:
@@ -411,10 +494,12 @@ class DataManager:
         
         # 获取评分计算的参考日期（开始日期后60天，确保有足够数据）
         from datetime import datetime, timedelta
-        score_date = (datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=60)).strftime('%Y-%m-%d')
+        # 统一使用%Y%m%d格式
+        start_date_fmt = start_date.replace('-', '') if '-' in start_date else start_date
+        score_date = (datetime.strptime(start_date_fmt, '%Y%m%d') + timedelta(days=60)).strftime('%Y%m%d')
         
         # 扩大数据加载范围以确保有足够的技术指标数据
-        score_start_date = (datetime.strptime(start_date, '%Y-%m-%d') - timedelta(days=60)).strftime('%Y-%m-%d')
+        score_start_date = (datetime.strptime(start_date_fmt, '%Y%m%d') - timedelta(days=60)).strftime('%Y%m%d')
         
         # 为每只股票计算评分
         for i, stock_code in enumerate(stock_codes):
@@ -651,7 +736,9 @@ class DataManager:
             
             # 查询财务数据（获取历史财务数据用于选股）
             from datetime import datetime, timedelta
-            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+            # 统一使用%Y%m%d格式
+            start_date_fmt = start_date.replace('-', '') if '-' in start_date else start_date
+            start_dt = datetime.strptime(start_date_fmt, '%Y%m%d')
             # 向前扩展1年以获取足够的财务数据用于选股
             extended_start = start_dt - timedelta(days=365)
             
@@ -674,18 +761,107 @@ class DataManager:
                 sample = fina_collection.find(all_query, {'ann_date': 1, 'end_date': 1}).sort('ann_date', -1).limit(3)
                 print(f"   最新3条ann_date: {[doc for doc in sample]}")
             
-            # 财务指标字段
+            # 财务指标字段映射 - 基于数据库因子综合报告的全量财务字段
             financial_fields = {
-                'eps': 'eps',
-                'bps': 'bps', 
-                'roe': 'roe',
-                'roa': 'roa_yearly',
-                'debt_to_assets': 'debt_to_assets',
-                'revenue_ps': 'revenue_ps',
-                'netprofit_margin': 'netprofit_margin',
-                'assets_turn': 'assets_turn',
-                'current_ratio': 'current_ratio',
-                'quick_ratio': 'quick_ratio'
+                # ==================== 每股指标 ====================
+                'eps': 'eps',                          # 每股收益
+                'diluted2_eps': 'diluted2_eps',        # 稀释每股收益
+                'dt_eps': 'dt_eps',                    # 扣非每股收益
+                'bvps': 'bps',                         # 每股净资产
+                'cfps': 'cfps',                        # 每股现金流
+                'ocfps': 'ocfps',                      # 每股经营现金流
+                'revenue_ps': 'revenue_ps',            # 每股营收
+                'total_revenue_ps': 'total_revenue_ps', # 每股营业总收入
+                'capital_rese_ps': 'capital_rese_ps',  # 每股资本公积
+                'surplus_rese_ps': 'surplus_rese_ps',  # 每股盈余公积
+                'undist_profit_ps': 'undist_profit_ps', # 每股未分配利润
+                'retainedps': 'retainedps',            # 每股留存收益
+                
+                # ==================== 盈利能力指标 ====================
+                'roe': 'roe',                          # 净资产收益率
+                'roe_waa': 'roe_waa',                  # 加权平均净资产收益率
+                'roe_dt': 'roe_dt',                    # 扣非净资产收益率
+                'roe_avg': 'roe_avg',                  # 平均净资产收益率
+                'roe_yearly': 'roe_yearly',            # 年化净资产收益率
+                'roa_dp': 'roa_dp',                    # 总资产报酬率
+                'roa_yearly': 'roa_yearly',            # 年化总资产收益率
+                'netprofit_margin': 'netprofit_margin', # 销售净利率
+                # 注意: grossprofit_margin字段在数据库中不存在，已移除
+                # 'grossprofit_margin': 'grossprofit_margin', # 销售毛利率
+                'profit_to_gr': 'profit_to_gr',        # 净利润/营业总收入
+                'profit_to_op': 'profit_to_op',        # 净利润/营业利润
+                
+                # ==================== 营运能力指标 ====================
+                'assets_turn': 'assets_turn',          # 资产周转率
+                'total_fa_trun': 'total_fa_trun',      # 固定资产周转率
+                
+                # ==================== 偿债能力指标 ====================
+                'debt_to_assets': 'debt_to_assets',    # 资产负债率
+                'debt_to_eqt': 'debt_to_eqt',          # 产权比率
+                'eqt_to_debt': 'eqt_to_debt',          # 权益乘数
+                'assets_to_eqt': 'assets_to_eqt',      # 资产权益比
+                # 注意: current_ratio, quick_ratio字段在数据库中不存在，已移除
+                # 'current_ratio': 'current_ratio',    # 流动比率
+                # 'quick_ratio': 'quick_ratio',        # 速动比率
+                'ocf_to_debt': 'ocf_to_debt',          # 经营现金流量对负债比率
+                'op_to_debt': 'op_to_debt',            # 营业利润对负债比率
+                
+                # ==================== 现金流指标 ====================
+                'ocf_to_profit': 'ocf_to_profit',      # 经营现金净流量对净利润比率
+                'ocf_to_opincome': 'ocf_to_opincome',  # 经营现金净流量对营业收入比率
+                'ocf_to_or': 'ocf_to_or',              # 经营现金净流量营业收入比
+                
+                # ==================== 成长能力指标 ====================
+                'revenue_yoy': 'or_yoy',               # 营业收入同比增长率
+                'profit_yoy': 'netprofit_yoy',         # 净利润同比增长率
+                'dt_netprofit_yoy': 'dt_netprofit_yoy', # 扣非净利润同比增长率
+                'eps_yoy': 'basic_eps_yoy',            # 每股收益同比增长率
+                'dt_eps_yoy': 'dt_eps_yoy',            # 扣非每股收益同比增长率
+                'bps_yoy': 'bps_yoy',                  # 每股净资产同比增长率
+                'cfps_yoy': 'cfps_yoy',                # 每股经营现金流同比增长率
+                'roe_yoy': 'roe_yoy',                  # ROE同比变化
+                'assets_yoy': 'assets_yoy',            # 资产同比增长率
+                'equity_yoy': 'equity_yoy',            # 股东权益同比增长率
+                'ebt_yoy': 'ebt_yoy',                  # 利润总额同比增长率
+                'op_yoy': 'op_yoy',                    # 营业利润同比增长率
+                'ocf_yoy': 'ocf_yoy',                  # 经营现金流同比增长率
+                
+                # ==================== 季度指标 ====================
+                'q_eps': 'q_eps',                      # 单季每股收益
+                'q_roe': 'q_roe',                      # 单季ROE
+                'q_dt_roe': 'q_dt_roe',                # 单季扣非ROE
+                'q_netprofit_margin': 'q_netprofit_margin', # 单季销售净利率
+                'q_netprofit_yoy': 'q_netprofit_yoy',  # 单季净利润同比
+                'q_netprofit_qoq': 'q_netprofit_qoq',  # 单季净利润环比
+                'q_profit_yoy': 'q_profit_yoy',        # 单季利润同比
+                'q_profit_qoq': 'q_profit_qoq',        # 单季利润环比
+                'q_profit_to_gr': 'q_profit_to_gr',    # 单季净利润/营业总收入
+                'q_dtprofit': 'q_dtprofit',            # 单季扣非净利润
+                'q_dtprofit_to_profit': 'q_dtprofit_to_profit', # 单季扣非净利润/净利润
+                'q_opincome': 'q_opincome',            # 单季营业收入
+                'q_investincome': 'q_investincome',    # 单季投资收益
+                'q_investincome_to_ebt': 'q_investincome_to_ebt', # 单季投资收益/利润总额
+                'q_opincome_to_ebt': 'q_opincome_to_ebt', # 单季营业收入/利润总额
+                
+                # ==================== 其他财务指标 ====================
+                'op_income': 'op_income',              # 营业收入
+                'profit_dedt': 'profit_dedt',          # 利润总额
+                'retained_earnings': 'retained_earnings', # 留存收益
+                'fixed_assets': 'fixed_assets',        # 固定资产
+                'non_op_profit': 'non_op_profit',      # 营业外收支净额
+                'valuechange_income': 'valuechange_income', # 公允价值变动收益
+                'investincome_of_ebt': 'investincome_of_ebt', # 投资收益/利润总额
+                'opincome_of_ebt': 'opincome_of_ebt',  # 营业收入/利润总额
+                'n_op_profit_of_ebt': 'n_op_profit_of_ebt', # 营业外收支净额/利润总额
+                'dtprofit_to_profit': 'dtprofit_to_profit', # 扣非净利润/净利润
+                'nop_to_ebt': 'nop_to_ebt',            # 营业外收支净额/利润总额
+                'op_of_gr': 'op_of_gr',                # 营业利润/营业总收入
+                'op_to_ebt': 'op_to_ebt',              # 营业利润/利润总额
+                # 注意: adminexp_of_gr字段在数据库中不存在，暂时移除
+                # 'adminexp_of_gr': 'adminexp_of_gr',  # 管理费用/营业总收入
+                'extra_item': 'extra_item',            # 非经常性损益
+                'npta': 'npta',                        # 总资产净利润
+                'dp_assets_to_eqt': 'dp_assets_to_eqt', # 带息负债/全部投入资本
             }
             
             # 构建查询字段
@@ -724,7 +900,7 @@ class DataManager:
             self.logger.warning(f"合并财务数据失败 {stock_code}: {e}")
             # 如果合并失败，添加空的财务数据列
             financial_fields = ['eps', 'bps', 'roe', 'roa', 'debt_to_assets', 'revenue_ps', 
-                              'netprofit_margin', 'assets_turn', 'current_ratio', 'quick_ratio']
+                              'netprofit_margin', 'assets_turn']  # 移除不存在的字段
             for field in financial_fields:
                 result_df[field] = np.nan
             return result_df

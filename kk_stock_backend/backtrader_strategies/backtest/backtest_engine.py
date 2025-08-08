@@ -43,12 +43,12 @@ class StrategyInterface(ABC):
         pass
     
     @abstractmethod
-    def generate_signals(self, 
+    async def generate_signals(self, 
                         current_date: str, 
                         market_data: Dict[str, Dict],
                         portfolio_info: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
-        生成交易信号
+        生成交易信号 (异步)
         
         Args:
             current_date: 当前日期
@@ -147,7 +147,8 @@ class BacktestEngine:
             'config': self.config,
             'initial_cash': self.config.backtest.initial_cash,
             'start_date': self.config.backtest.start_date,
-            'end_date': self.config.backtest.end_date
+            'end_date': self.config.backtest.end_date,
+            'backtest_engine': self  # 添加回测引擎引用，支持动态数据加载
         }
         
         self.strategy.initialize(self.strategy_context)
@@ -216,7 +217,37 @@ class BacktestEngine:
             for issue in data_quality['issues'][:5]:  # 只显示前5个问题
                 self.logger.warning(f"  {issue}")
     
-    def run_backtest(self) -> Dict[str, Any]:
+    async def load_additional_stocks(self, stock_codes: List[str]) -> None:
+        """
+        动态加载额外的股票数据
+        
+        Args:
+            stock_codes: 需要加载的股票代码列表
+        """
+        if not stock_codes:
+            return
+            
+        # 过滤掉已经加载的股票
+        new_stocks = [code for code in stock_codes if code not in self.market_data]
+        if not new_stocks:
+            return
+            
+        self.logger.info(f"动态加载额外股票数据: {len(new_stocks)}只")
+        
+        # 加载新股票的数据
+        additional_data = self.data_manager.load_market_data(
+            stock_codes=new_stocks,
+            start_date=self.config.backtest.start_date,
+            end_date=self.config.backtest.end_date,
+            max_stocks=len(new_stocks),  # 加载所有请求的股票
+            strategy_scorer=None
+        )
+        
+        # 合并到现有数据中
+        self.market_data.update(additional_data)
+        self.logger.info(f"动态加载完成: 新增{len(additional_data)}只股票，总计{len(self.market_data)}只股票")
+    
+    async def run_backtest(self) -> Dict[str, Any]:
         """
         运行回测
         
@@ -253,7 +284,7 @@ class BacktestEngine:
                     self.logger.info(f"回测进度: {progress:.1f}% ({i+1}/{len(self.trading_dates)})")
                 
                 # 执行单日回测
-                self._process_single_day(trade_date)
+                await self._process_single_day(trade_date)
             
             # 生成回测结果
             result = self._generate_backtest_result()
@@ -265,11 +296,15 @@ class BacktestEngine:
             self.logger.error(f"回测过程中发生错误: {e}")
             import traceback
             traceback.print_exc()
-            raise
+            return {
+                'success': False,
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
+            }
         finally:
             self.is_running = False
     
-    def _process_single_day(self, trade_date: str):
+    async def _process_single_day(self, trade_date: str):
         """
         处理单日回测逻辑
         
@@ -310,7 +345,7 @@ class BacktestEngine:
         
         # 5. 生成策略信号
         portfolio_info = self.portfolio_manager.get_portfolio_summary()
-        signals = self.strategy.generate_signals(trade_date, daily_market_data, portfolio_info)
+        signals = await self.strategy.generate_signals(trade_date, daily_market_data, portfolio_info)
         
         # 6. 处理策略信号（避免与风险控制重复）
         for signal in signals:
@@ -420,28 +455,36 @@ class BacktestEngine:
         try:
             action = signal['action'].lower()
             stock_code = signal['stock_code']
+            print(f"🔍 处理交易信号: {action} {stock_code} @ {signal.get('price', 0):.2f}")
             
             if action == 'buy':
                 # 检查是否可以开新仓
-                if not self.portfolio_manager.can_open_new_position():
-                    self.logger.debug(f"无法开新仓，跳过买入信号: {stock_code}")
+                can_open = self.portfolio_manager.can_open_new_position()
+                print(f"🔍 是否可开新仓: {can_open}")
+                if not can_open:
+                    print(f"❌ 无法开新仓，跳过买入信号: {stock_code}")
                     return
                 
                 # 计算买入数量
                 target_weight = signal.get('weight', self.config.strategy.max_single_position)
                 current_price = signal['price']
+                print(f"🔍 目标权重: {target_weight:.2%}, 当前价格: {current_price:.2f}")
                 quantity = self.portfolio_manager.calculate_position_size(
                     stock_code, target_weight, current_price
                 )
+                print(f"🔍 计算买入数量: {quantity}股")
                 
                 if quantity > 0:
-                    self.order_manager.create_order(
+                    order_id = self.order_manager.create_order(
                         stock_code=stock_code,
                         order_type=OrderType.BUY,
                         quantity=quantity,
                         price=current_price,
                         timestamp=pd.to_datetime(trade_date)
                     )
+                    print(f"✅ 创建买入订单: {order_id} - {stock_code} {quantity}股 @{current_price:.2f}")
+                else:
+                    print(f"❌ 买入数量为0，跳过订单创建: {stock_code}")
             
             elif action == 'sell':
                 # 检查是否有持仓
@@ -537,6 +580,7 @@ class BacktestEngine:
         
         # 组装完整结果
         result = {
+            'success': True,
             'backtest_config': {
                 'initial_cash': self.config.backtest.initial_cash,
                 'start_date': self.config.backtest.start_date,
